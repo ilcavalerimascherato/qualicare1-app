@@ -9,7 +9,12 @@ import {
   ChevronRight, 
   CheckCircle2, 
   AlertCircle, 
-  Clock 
+  Clock,
+  X,
+  Activity,
+  Calendar,
+  Users,
+  UserCog
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
