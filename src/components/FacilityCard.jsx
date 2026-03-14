@@ -1,100 +1,95 @@
 import React from 'react';
-import { Pencil, Users, UserCog, User } from 'lucide-react';
+import { Settings, Database, BarChart3, Activity, Archive, ArchiveRestore, CheckCircle2 } from 'lucide-react';
 
-export default function FacilityCard({ f, qs, onEdit, onQClick, gridCols }) {
+export default function FacilityCard({ f, surveys, udos = [], gridCols, onEdit, onDataClick, onSuspendToggle, onKpiClick }) {
   
-  // LOGICA COLORI STATO SINCRONIZZATA CON IL DATABASE
-  const getStatusColor = (type) => {
-    // 1. Cerchiamo il questionario con confronto robusto (String + lowercase)
-    const q = qs.find(x => 
-      String(x.facility_id) === String(f.id) && 
-      String(x.type).toLowerCase().trim() === type.toLowerCase().trim()
-    );
+  const udo = udos.find(u => u.id === f.udo_id);
+  const udoColor = udo?.color || '#cbd5e1';
 
-    // 2. Se non esiste il record per quell'anno/tipo
-    if (!q) return 'bg-white/50 text-slate-400 border-white/20';
-
-    // 3. VERDE: Se esiste il file PDF (colonna corretta: esiti_pdf)
-    if (q.esiti_pdf && String(q.esiti_pdf).trim() !== '') {
-      return 'bg-emerald-500 text-white border-emerald-400 shadow-sm';
-    }
-
-    // 4. GIALLO: Se non c'è il PDF ma è stata inserita una data di inizio
-    if (q.start_date && String(q.start_date).trim() !== '') {
-      return 'bg-amber-400 text-white border-amber-300 shadow-sm';
-    }
-
-    // 5. ROSSO: Record creato ma senza dati utili
-    return 'bg-rose-500 text-white border-rose-400';
+  // Stato di completamento: Verde se esiste ALMENO una relazione IA, Indaco se ci sono dati ma no relazione
+  const getStatus = (type) => {
+    const targetSurveys = surveys.filter(s => s.type === type && (s.facility_id === f.id || (!s.facility_id && s.company_id === f.company_id)));
+    if (targetSurveys.length === 0) return 'empty';
+    
+    const latestSurvey = targetSurveys.sort((a, b) => b.calendar_id.localeCompare(a.calendar_id))[0];
+    if (latestSurvey.ai_report_ospiti || latestSurvey.ai_report_direzione) return 'completed';
+    
+    return 'pending';
   };
 
-  // CONFIGURAZIONE DINAMICA FONT
-  const isLarge = gridCols === 'lg:grid-cols-4';
-  const isMedium = gridCols === 'lg:grid-cols-6';
-  
-  const fontSize = isLarge ? 'text-[22px]' : isMedium ? 'text-[16px]' : 'text-[14px]';
-  const iconSize = isLarge ? 'w-14 h-14' : 'w-8 h-8';
-  const iconInner = isLarge ? 28 : 14;
+  const iconStyles = {
+    empty: "bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 border-slate-200",
+    pending: "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border-indigo-200 shadow-sm",
+    completed: "bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white border-emerald-200 shadow-sm"
+  };
+
+  const renderBtn = (type, IconComponent, label) => {
+    const status = getStatus(type);
+    return (
+      <button 
+        onClick={() => onDataClick(f, type)}
+        className={`flex items-center justify-center w-8 h-7 rounded-md border transition-all ${iconStyles[status]}`}
+        title={`${label} - ${status === 'empty' ? 'Carica Dati' : status === 'completed' ? 'Relazione OK' : 'Da Elaborare'}`}
+      >
+        <IconComponent size={14} className={status === 'empty' ? 'opacity-50' : 'opacity-100'} />
+      </button>
+    );
+  };
+
+  const isCompact = gridCols && (gridCols.includes('6') || gridCols.includes('8'));
+  const isUltraCompact = gridCols && gridCols.includes('8');
 
   return (
     <div 
-      style={{ 
-        backgroundColor: `${f.udo_color}66`, 
-        borderColor: `${f.udo_color}80` 
-      }} 
-      className={`relative p-4 rounded-2xl border-2 group hover:shadow-xl transition-all flex flex-col justify-between ${isLarge ? 'min-h-[200px]' : 'min-h-[110px]'}`}
+      className={`bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col relative group hover:shadow-md transition-all duration-200 ${f.is_suspended ? 'opacity-50 grayscale' : ''}`}
+      style={{ borderTopWidth: '5px', borderTopColor: f.is_suspended ? '#94a3b8' : udoColor }}
     >
-      {/* Tasto Edit */}
-      <button 
-        onClick={onEdit} 
-        className="absolute top-2 right-2 p-1.5 text-slate-600 hover:text-black opacity-0 group-hover:opacity-100 transition-opacity z-10"
-      >
-        <Pencil size={isLarge ? 22 : 14} />
-      </button>
       
-      {/* Header Card */}
-      <div>
-        <h3 className={`font-black uppercase text-slate-900 pr-8 leading-tight mb-1 truncate ${fontSize}`}>
+      {/* Bottoni in alto a destra (Appaiono all'hover) */}
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          onClick={() => onSuspendToggle(f)} 
+          className={`p-1.5 rounded-lg transition-all ${f.is_suspended ? 'text-amber-500 hover:bg-amber-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}
+          title={f.is_suspended ? "Riattiva Struttura" : "Sospendi Struttura"}
+        >
+          {f.is_suspended ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+        </button>
+        <button onClick={onEdit} className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+          <Settings size={14} />
+        </button>
+      </div>
+
+      <div className="mb-2 pr-12 flex-1">
+        <h3 className={`text-sm font-black leading-tight line-clamp-2 ${f.is_suspended ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
           {f.name}
         </h3>
-        <p className={`font-black text-slate-800/60 uppercase tracking-wider ${isLarge ? 'text-[14px]' : 'text-[10px]'}`}>
-          {f.bed_count || 0} Posti Letto
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+          {f.type} • {f.city}
         </p>
-      </div>
-      
-      {/* Footer Card */}
-      <div className="flex justify-between items-end mt-4 pt-4 border-t border-black/5">
-        <div className="flex-1 min-w-0">
-          {isLarge && (
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest leading-none mb-1">
-                Referente
-              </span>
-              <div className="flex items-center gap-1.5 text-slate-800">
-                <User size={14} className="shrink-0 opacity-50" />
-                <span className="text-[15px] font-bold truncate pr-2">
-                  {f.referent || '—'}
-                </span>
-              </div>
-            </div>
-          )}
+        
+        <div className="mt-2 text-[11px] font-medium text-slate-500 space-y-0.5">
+          {!isUltraCompact && f.address && <p className="truncate">{f.address}</p>}
+          {!isCompact && f.referent && <p className="truncate text-slate-400">Ref: {f.referent}</p>}
         </div>
+      </div>
 
-        <div className="flex gap-3 shrink-0">
-          <button 
-            title="Questionario Clienti"
-            onClick={() => onQClick('client')} 
-            className={`rounded-full flex items-center justify-center border-2 shadow-md transition-all hover:scale-110 active:scale-90 ${iconSize} ${getStatusColor('client')}`}
-          >
-            <Users size={iconInner}/>
-          </button>
-          <button 
-            title="Questionario Operatori"
-            onClick={() => onQClick('operator')} 
-            className={`rounded-full flex items-center justify-center border-2 shadow-md transition-all hover:scale-110 active:scale-90 ${iconSize} ${getStatusColor('operator')}`}
-          >
-            <UserCog size={iconInner}/>
-          </button>
+      {/* FOOTER DELLA CARD: KPI a sinistra, Questionari a destra */}
+      <div className="mt-2 flex justify-between items-center pt-3 border-t border-slate-50">
+        
+        {/* TASTO KPI COMPATTO (Sinistra) */}
+        <button 
+          onClick={() => onKpiClick(f)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all group shadow-sm ${f.isKpiGreen ? 'bg-emerald-500 border-emerald-600 text-white hover:bg-emerald-600' : 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white'}`}
+          title={f.isKpiGreen ? "Dati in regola. Nessuna azione richiesta." : "Gestione KPI Mensili"}
+        >
+          {f.isKpiGreen ? <CheckCircle2 size={13} /> : <Activity size={13} className="group-hover:animate-pulse" />}
+          <span className="text-[10px] font-black uppercase tracking-wider">KPI</span>
+        </button>
+
+        {/* QUESTIONARI (Destra) */}
+        <div className="flex gap-1.5">
+          {renderBtn('client', BarChart3, 'Clienti')}
+          {renderBtn('operator', Database, 'Operatori')}
         </div>
       </div>
     </div>
