@@ -1,0 +1,7 @@
+Pretendi sempre l'ottimizzazione. 
+Prima di suggerire nuovo codice, verifica se esiste già una funzione simile nel codebase (@Codebase). 
+Se trovi ripetizioni, proponi un refactoring centralizzato invece di aggiungere righe.
+Ogni volta che scrivo codice, esegui un controllo silenzioso con ESLint. Se trovi errori di formattazione o variabili inutilizzate, segnalamelo immediatamente nel Composer senza che io debba lanciare il comando nel terminale
+Non generare mai codice che violi le regole di ESLint presenti nel progetto.
+Ogni volta che proponi una modifica, esegui mentalmente un controllo del principio DRY (Don't Repeat Yourself).
+Preferisci sempre la composizione e la centralizzazione delle funzioni rispetto alla duplicazione.

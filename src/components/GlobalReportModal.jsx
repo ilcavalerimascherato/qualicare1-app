@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import html2pdf from 'html2pdf.js';
 
 const metricNames = {
-  soddisfazione_generale: "Soddisfazione Globale", info_cura: "Chiarezza Progetto di Cura", ascolto: "Qualità dell'Ascolto", contatto_struttura: "Reperibilità Struttura", relazione_equipe: "Relazione con l'Equipe", voto_assistenza: "Assistenza Personale", voto_alloggio: "Comfort Alloggio", soddisfazione_pulizia: "Igiene e Pulizia", voto_animazione: "Attività Ricreative", cura_bisogni: "Attenzione ai Bisogni", nps_consiglio: "Propensione Raccomandazione (NPS)", info_prenotazione: "Info in Prenotazione", info_ingresso: "Accoglienza Ingresso", voto_bagno: "Servizi Igienici", voto_spazio_esterno: "Spazi Esterni", voto_pulizie: "Personale Pulizie", voto_ristorazione_qualita: "Qualità Ristorazione", soddisfazione_tempo: "Tempo Dedicato all'Ospite", appagamento_vita: "Appagamento Quotidiano", assistenza_diurna: "Assistenza Diurna", assistenza_notturna: "Assistenza Notturna", rispetto_dignita: "Rispetto della Dignità", coinvolgimento_cure: "Coinvolgimento nelle Cure"
+  soddisfazione_generale: 'Soddisfazione Globale', info_cura: 'Chiarezza Progetto di Cura', ascolto: "Qualità dell'Ascolto", contatto_struttura: 'Reperibilità Struttura', relazione_equipe: "Relazione con l'Equipe", voto_assistenza: 'Assistenza Personale', voto_alloggio: 'Comfort Alloggio', soddisfazione_pulizia: 'Igiene e Pulizia', voto_animazione: 'Attività Ricreative', cura_bisogni: 'Attenzione ai Bisogni', nps_consiglio: 'Propensione Raccomandazione (NPS)', info_prenotazione: 'Info in Prenotazione', info_ingresso: 'Accoglienza Ingresso', voto_bagno: 'Servizi Igienici', voto_spazio_esterno: 'Spazi Esterni', voto_pulizie: 'Personale Pulizie', voto_ristorazione_qualita: 'Qualità Ristorazione', soddisfazione_tempo: "Tempo Dedicato all'Ospite", appagamento_vita: 'Appagamento Quotidiano', assistenza_diurna: 'Assistenza Diurna', assistenza_notturna: 'Assistenza Notturna', rispetto_dignita: 'Rispetto della Dignità', coinvolgimento_cure: 'Coinvolgimento nelle Cure'
 };
 
 const imageToBase64 = (url) => new Promise((resolve, reject) => {
@@ -26,15 +26,15 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
   const [reportType, setReportType] = useState('client'); // 'client' o 'operator'
   const [reportScope, setReportScope] = useState('all'); // 'all' o udo_id
   const [isGenerating, setIsGenerating] = useState(false);
-  const [aiReport, setAiReport] = useState("");
-  
-  const [headerBase64, setHeaderBase64] = useState("");
-  const [footerBase64, setFooterBase64] = useState("");
+  const [aiReport, setAiReport] = useState('');
+
+  const [headerBase64, setHeaderBase64] = useState('');
+  const [footerBase64, setFooterBase64] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      imageToBase64('/intestazione.png').then(setHeaderBase64).catch(e => console.error("Errore Header", e));
-      imageToBase64('/down.png').then(setFooterBase64).catch(e => console.error("Errore Footer", e));
+      imageToBase64('/intestazione.png').then(setHeaderBase64).catch(e => console.error('Errore Header', e));
+      imageToBase64('/down.png').then(setFooterBase64).catch(e => console.error('Errore Footer', e));
     }
   }, [isOpen]);
 
@@ -61,22 +61,22 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
       }
     });
 
-    if (allResponses.length === 0) return { chartData: [], averageScore: 0, totalResponses: 0, facilitiesIncluded: 0, totalBeds: 0 };
+    if (allResponses.length === 0) {return { chartData: [], averageScore: 0, totalResponses: 0, facilitiesIncluded: 0, totalBeds: 0 };}
 
     const aggregates = {};
     allResponses.forEach(row => {
       Object.keys(row).forEach(key => {
-        if (!aggregates[key]) aggregates[key] = { sum: 0, count: 0 };
+        if (!aggregates[key]) {aggregates[key] = { sum: 0, count: 0 };}
         aggregates[key].sum += row[key];
         aggregates[key].count += 1;
       });
     });
 
     const chartData = Object.keys(aggregates).map(key => {
-      return { 
-        key: key, 
-        subject: metricNames[key] || key.replace(/_/g, ' ').toUpperCase(), 
-        score: Math.round(aggregates[key].sum / aggregates[key].count) 
+      return {
+        key: key,
+        subject: metricNames[key] || key.replace(/_/g, ' ').toUpperCase(),
+        score: Math.round(aggregates[key].sum / aggregates[key].count)
       };
     }).sort((a, b) => b.score - a.score);
 
@@ -85,22 +85,22 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
     return { chartData, averageScore, totalResponses: allResponses.length, facilitiesIncluded, totalBeds };
   }, [facilities, surveys, reportScope, reportType]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const scopeName = reportScope === 'all' ? 'Tutto il Gruppo' : (udos.find(u => String(u.id) === String(reportScope))?.name || 'UDO');
   const typeName = reportType === 'client' ? 'Clienti / Ospiti' : 'Staff / Operatori';
 
   const generateReport = async () => {
-    if (!process.env.REACT_APP_GEMINI_API_KEY) { alert("Manca la chiave API Gemini"); return; }
-    if (aggregatedData.chartData.length === 0) { alert("Nessun dato disponibile per questa selezione."); return; }
-    
+    if (!process.env.REACT_APP_GEMINI_API_KEY) { alert('Manca la chiave API Gemini'); return; }
+    if (aggregatedData.chartData.length === 0) { alert('Nessun dato disponibile per questa selezione.'); return; }
+
     setIsGenerating(true);
     try {
       const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
       const dataPayload = aggregatedData.chartData.map(d => `${d.subject}: ${d.score}/100`).join('\n');
-      
+
       const prompt = `
         Sei il Direttore Generale Strategico. Scrivi una Relazione Esecutiva Aggregata.
         Perimetro di analisi: ${scopeName}. Target: Questionari ${typeName}.
@@ -124,7 +124,7 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
       const result = await model.generateContent(prompt);
       setAiReport(result.response.text());
     } catch (error) {
-      alert("Errore generazione: " + error.message);
+      alert('Errore generazione: ' + error.message);
     } finally {
       setIsGenerating(false);
     }
@@ -133,27 +133,27 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
   const exportPDF = () => {
     const element = document.getElementById('global-pdf-template');
     const opt = {
-      margin: [20, 15, 20, 15], 
+      margin: [20, 15, 20, 15],
       filename: `Relazione_Globale_${scopeName.replace(/ /g, '_')}_${reportType}.pdf`,
       image: { type: 'jpeg', quality: 1 },
-      html2canvas: { scale: 2, useCORS: true }, 
+      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
-    
+
     element.style.display = 'block';
-    html2pdf().set(opt).from(element).save().then(() => { 
+    html2pdf().set(opt).from(element).save().then(() => {
       element.style.display = 'none';
     });
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      
+
       {/* TEMPLATE PDF NASCOSTO */}
       <div style={{ position: 'absolute', left: '-15000px', top: 0 }}>
         <div id="global-pdf-template" className="bg-white text-black font-sans relative" style={{ width: '180mm', display: 'none' }}>
           {headerBase64 && <img src={headerBase64} alt="Header" style={{ width: '100%', height: 'auto', marginBottom: '25px' }} />}
-          
+
           <p className="text-xl font-bold text-indigo-600 mb-2 uppercase tracking-widest text-center">
             {scopeName} • Analisi {typeName}
           </p>
@@ -192,7 +192,7 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
       </div>
 
       <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        
+
         {/* HEADER MODALE */}
         <div className="bg-slate-950 px-8 py-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
@@ -223,12 +223,12 @@ export default function GlobalReportModal({ isOpen, onClose, facilities, udos, s
             </select>
           </div>
 
-          <button 
+          <button
             onClick={generateReport}
             disabled={isGenerating || aggregatedData.totalResponses === 0}
             className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest shadow-md transition-all flex items-center gap-3 shrink-0"
           >
-            <BrainCircuit size={20} /> 
+            <BrainCircuit size={20} />
             {isGenerating ? 'Elaborazione Matrice...' : 'Genera Relazione IA'}
           </button>
         </div>

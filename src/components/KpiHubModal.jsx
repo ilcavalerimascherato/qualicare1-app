@@ -2,12 +2,12 @@ import React from 'react';
 import { X, BarChart2, TrendingUp, ActivitySquare } from 'lucide-react';
 
 export default function KpiHubModal({ isOpen, onClose, onSelect }) {
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   return (
     <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in">
       <div className="bg-white rounded-3xl w-full max-w-4xl flex flex-col shadow-2xl overflow-hidden font-sans p-10 relative">
-        
+
         <button onClick={onClose} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-800 rounded-full transition-colors bg-slate-100 hover:bg-slate-200">
           <X size={24} />
         </button>
@@ -18,7 +18,7 @@ export default function KpiHubModal({ isOpen, onClose, onSelect }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
+
           {/* OPZIONE 1: MENSILE */}
           <button onClick={() => onSelect('kpiCharts')} className="flex flex-col items-center p-8 rounded-2xl border-2 border-slate-100 hover:border-sky-500 hover:bg-sky-50 transition-all group text-left h-full">
             <div className="p-4 bg-sky-100 text-sky-600 rounded-2xl mb-6 group-hover:scale-110 transition-transform">

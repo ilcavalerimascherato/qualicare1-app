@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 
 export default function QuestionnaireModal({ isOpen, onClose, info, year, questionnaires, onSave }) {
   const q = info ? questionnaires.find(x => x.facility_id === info.facility.id && x.type === info.type) : null;
-  
+
   // STATO SINCRONIZZATO CON NOMI COLONNE DB
   const [formData, setFormData] = useState({ start_date: '', end_date: '', esiti_pdf: '' });
   const [uploading, setUploading] = useState(false);
@@ -13,22 +13,22 @@ export default function QuestionnaireModal({ isOpen, onClose, info, year, questi
 
   useEffect(() => {
     if (isOpen && q) {
-      setFormData({ 
-        start_date: q.start_date || '', 
-        end_date: q.end_date || '', 
-        esiti_pdf: q.esiti_pdf || '' 
+      setFormData({
+        start_date: q.start_date || '',
+        end_date: q.end_date || '',
+        esiti_pdf: q.esiti_pdf || ''
       });
     } else if (!isOpen) {
       setFormData({ start_date: '', end_date: '', esiti_pdf: '' });
     }
   }, [isOpen, q]);
 
-  if (!isOpen || !info) return null;
+  if (!isOpen || !info) {return null;}
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file || file.type !== 'application/pdf') {
-      alert("Solo PDF.");
+      alert('Solo PDF.');
       return;
     }
 
@@ -36,7 +36,7 @@ export default function QuestionnaireModal({ isOpen, onClose, info, year, questi
     try {
       const filePath = `${year}/${info.facility.id}_${info.type}.pdf`.replace(/\s/g, '');
       const { error: uploadError } = await supabase.storage.from('questionnaires').upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
+      if (uploadError) {throw uploadError;}
 
       const payload = {
         facility_id: info.facility.id,
@@ -50,7 +50,7 @@ export default function QuestionnaireModal({ isOpen, onClose, info, year, questi
       await onSave(payload);
       setFormData(prev => ({ ...prev, esiti_pdf: filePath }));
     } catch (error) {
-      alert("Errore caricamento: " + error.message);
+      alert('Errore caricamento: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -68,7 +68,7 @@ export default function QuestionnaireModal({ isOpen, onClose, info, year, questi
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-rose-500 p-2 rounded-full transition-colors"><X size={28} /></button>
         </div>
-        
+
         <div className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-6">
             <div>
@@ -81,7 +81,7 @@ export default function QuestionnaireModal({ isOpen, onClose, info, year, questi
             </div>
           </div>
 
-          <div 
+          <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileUpload({target: {files: e.dataTransfer.files}}); }}
             className={`relative border-2 border-dashed rounded-3xl p-8 transition-all flex flex-col items-center justify-center ${isDragging ? 'border-indigo-500 bg-indigo-50' : formData.esiti_pdf ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}
           >

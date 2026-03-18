@@ -6,7 +6,7 @@ import html2pdf from 'html2pdf.js';
 import { supabase } from '../supabaseClient';
 
 const metricNames = {
-  soddisfazione_generale: "Soddisfazione Globale", info_cura: "Chiarezza Progetto di Cura", ascolto: "Qualità dell'Ascolto", contatto_struttura: "Reperibilità Struttura", relazione_equipe: "Relazione con l'Equipe", voto_assistenza: "Assistenza Personale", voto_alloggio: "Comfort Alloggio", soddisfazione_pulizia: "Igiene e Pulizia", voto_animazione: "Attività Ricreative", cura_bisogni: "Attenzione ai Bisogni", nps_consiglio: "Propensione Raccomandazione (NPS)", info_prenotazione: "Info in Prenotazione", info_ingresso: "Accoglienza Ingresso", voto_bagno: "Servizi Igienici", voto_spazio_esterno: "Spazi Esterni", voto_pulizie: "Personale Pulizie", voto_ristorazione_qualita: "Qualità Ristorazione", soddisfazione_tempo: "Tempo Dedicato all'Ospite", appagamento_vita: "Appagamento Quotidiano", assistenza_diurna: "Assistenza Diurna", assistenza_notturna: "Assistenza Notturna", rispetto_dignita: "Rispetto della Dignità", coinvolgimento_cure: "Coinvolgimento nelle Cure"
+  soddisfazione_generale: 'Soddisfazione Globale', info_cura: 'Chiarezza Progetto di Cura', ascolto: "Qualità dell'Ascolto", contatto_struttura: 'Reperibilità Struttura', relazione_equipe: "Relazione con l'Equipe", voto_assistenza: 'Assistenza Personale', voto_alloggio: 'Comfort Alloggio', soddisfazione_pulizia: 'Igiene e Pulizia', voto_animazione: 'Attività Ricreative', cura_bisogni: 'Attenzione ai Bisogni', nps_consiglio: 'Propensione Raccomandazione (NPS)', info_prenotazione: 'Info in Prenotazione', info_ingresso: 'Accoglienza Ingresso', voto_bagno: 'Servizi Igienici', voto_spazio_esterno: 'Spazi Esterni', voto_pulizie: 'Personale Pulizie', voto_ristorazione_qualita: 'Qualità Ristorazione', soddisfazione_tempo: "Tempo Dedicato all'Ospite", appagamento_vita: 'Appagamento Quotidiano', assistenza_diurna: 'Assistenza Diurna', assistenza_notturna: 'Assistenza Notturna', rispetto_dignita: 'Rispetto della Dignità', coinvolgimento_cure: 'Coinvolgimento nelle Cure'
 };
 
 // Funzione esterna per il convertitore
@@ -25,15 +25,15 @@ const imageToBase64 = (url) => new Promise((resolve, reject) => {
   img.src = url;
 });
 
-export default function AnalyticsModal({ isOpen, onClose, facility, type, surveys, facilities = [], udos = [], onOpenImport, onUpdateSuccess }) {
+export default function AnalyticsModal({ isOpen, onClose, facility, type, surveys, facilities = [], onOpenImport, onUpdateSuccess }) {
   const [showUdoCompare, setShowUdoCompare] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiReport, setAiReport] = useState("");
+  const [aiReport, setAiReport] = useState('');
   const [reportTarget, setReportTarget] = useState(null);
-  
+
   // STATI PER IL PRE-CARICAMENTO DELLA CARTA INTESTATA
-  const [headerBase64, setHeaderBase64] = useState("");
-  const [footerBase64, setFooterBase64] = useState("");
+  const [headerBase64, setHeaderBase64] = useState('');
+  const [footerBase64, setFooterBase64] = useState('');
 
   const targetSurveys = surveys.filter(s => s.type === type && (s.facility_id === facility.id || (!s.facility_id && s.company_id === facility.company_id)));
   const latestSurvey = targetSurveys.sort((a, b) => b.calendar_id.localeCompare(a.calendar_id))[0];
@@ -42,17 +42,17 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
   // Pre-caricamento brutale delle immagini all'apertura del componente
   useEffect(() => {
     if (isOpen) {
-      imageToBase64('/intestazione.png').then(setHeaderBase64).catch(e => console.error("Errore Header", e));
-      imageToBase64('/down.png').then(setFooterBase64).catch(e => console.error("Errore Footer", e));
+      imageToBase64('/intestazione.png').then(setHeaderBase64).catch(e => console.error('Errore Header', e));
+      imageToBase64('/down.png').then(setFooterBase64).catch(e => console.error('Errore Footer', e));
     }
   }, [isOpen]);
 
   const chartData = useMemo(() => {
-    if (!latestSurvey || !latestSurvey.responses_json) return [];
+    if (!latestSurvey || !latestSurvey.responses_json) {return [];}
     const facilityAggregates = {};
     latestSurvey.responses_json.forEach(row => {
       Object.keys(row).forEach(key => {
-        if (!facilityAggregates[key]) facilityAggregates[key] = { sum: 0, count: 0 };
+        if (!facilityAggregates[key]) {facilityAggregates[key] = { sum: 0, count: 0 };}
         facilityAggregates[key].sum += row[key];
         facilityAggregates[key].count += 1;
       });
@@ -66,10 +66,10 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
       const latestSurveysPerTarget = {};
 
       surveys.forEach(s => {
-        if (s.type !== type) return;
+        if (s.type !== type) {return;}
         let targetKey = null;
-        if (s.facility_id && udoFacilityIds.includes(s.facility_id)) targetKey = `fac_${s.facility_id}`;
-        else if (!s.facility_id && s.company_id && udoCompanyIds.includes(s.company_id)) targetKey = `comp_${s.company_id}`;
+        if (s.facility_id && udoFacilityIds.includes(s.facility_id)) {targetKey = `fac_${s.facility_id}`;}
+        else if (!s.facility_id && s.company_id && udoCompanyIds.includes(s.company_id)) {targetKey = `comp_${s.company_id}`;}
         if (targetKey) {
           if (!latestSurveysPerTarget[targetKey] || s.calendar_id > latestSurveysPerTarget[targetKey].calendar_id) {
             latestSurveysPerTarget[targetKey] = s;
@@ -81,7 +81,7 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
         if(survey.responses_json) {
           survey.responses_json.forEach(row => {
             Object.keys(row).forEach(key => {
-              if (!udoAggregates[key]) udoAggregates[key] = { sum: 0, count: 0 };
+              if (!udoAggregates[key]) {udoAggregates[key] = { sum: 0, count: 0 };}
               udoAggregates[key].sum += row[key];
               udoAggregates[key].count += 1;
             });
@@ -92,7 +92,7 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
 
     return Object.keys(facilityAggregates).map(key => {
       const facilityScore = Math.round(facilityAggregates[key].sum / facilityAggregates[key].count);
-      let udoScore = showUdoCompare && udoAggregates[key] ? Math.round(udoAggregates[key].sum / udoAggregates[key].count) : null;
+      const udoScore = showUdoCompare && udoAggregates[key] ? Math.round(udoAggregates[key].sum / udoAggregates[key].count) : null;
       return { key: key, subject: metricNames[key] || key.replace(/_/g, ' ').toUpperCase(), score: facilityScore, udoScore: udoScore, fullMark: 100 };
     }).sort((a, b) => b.score - a.score);
   }, [latestSurvey, showUdoCompare, facility.udo_id, facilities, surveys, type]);
@@ -107,19 +107,19 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
   } else {
     targetAudience = facility.bed_count || facility.posti_letto || 0;
   }
-  
+
   const redemptionRate = targetAudience > 0 ? Math.round((totalResponses / targetAudience) * 100) : null;
 
   useEffect(() => {
-    setAiReport("");
+    setAiReport('');
     setReportTarget(null);
   }, [latestSurvey]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const handleAction = async (target) => {
     setReportTarget(target);
-    
+
     if (target === 'ospiti' && latestSurvey.ai_report_ospiti) {
       setAiReport(latestSurvey.ai_report_ospiti); return;
     }
@@ -127,15 +127,15 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
       setAiReport(latestSurvey.ai_report_direzione); return;
     }
 
-    if (!process.env.REACT_APP_GEMINI_API_KEY) { alert("Manca la chiave API di Gemini"); return; }
+    if (!process.env.REACT_APP_GEMINI_API_KEY) { alert('Manca la chiave API di Gemini'); return; }
     setIsGeneratingAI(true);
-    
+
     try {
       const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const dataPayload = chartData.map(d => `${d.subject}: ${d.score}/100`).join('\n');
-      
-      let prompt = "";
+
+      let prompt = '';
 
       if (target === 'ospiti') {
         prompt = `
@@ -178,58 +178,58 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
 
       const result = await model.generateContent(prompt);
       setAiReport(result.response.text());
-    } catch (error) { alert("Errore AI: " + error.message); } finally { setIsGeneratingAI(false); }
+    } catch (error) { alert('Errore AI: ' + error.message); } finally { setIsGeneratingAI(false); }
   };
 
   const handleRegenerate = async () => {
     try {
       const updateData = {};
-      if (reportTarget === 'ospiti') updateData.ai_report_ospiti = null;
-      if (reportTarget === 'direzione') updateData.ai_report_direzione = null;
+      if (reportTarget === 'ospiti') {updateData.ai_report_ospiti = null;}
+      if (reportTarget === 'direzione') {updateData.ai_report_direzione = null;}
       await supabase.from('survey_data').update(updateData).eq('id', latestSurvey.id);
-      latestSurvey[`ai_report_${reportTarget}`] = null; 
+      latestSurvey[`ai_report_${reportTarget}`] = null;
       handleAction(reportTarget);
-    } catch (err) { alert("Errore ripristino: " + err.message); }
+    } catch (err) { alert('Errore ripristino: ' + err.message); }
   };
 
   const handleSaveAndPDF = async () => {
     try {
       const updateData = {};
-      if (reportTarget === 'ospiti') updateData.ai_report_ospiti = aiReport;
-      if (reportTarget === 'direzione') updateData.ai_report_direzione = aiReport;
+      if (reportTarget === 'ospiti') {updateData.ai_report_ospiti = aiReport;}
+      if (reportTarget === 'direzione') {updateData.ai_report_direzione = aiReport;}
       await supabase.from('survey_data').update(updateData).eq('id', latestSurvey.id);
-      if (onUpdateSuccess) onUpdateSuccess(); 
-    } catch (err) { alert("Errore DB: " + err.message); return; }
+      if (onUpdateSuccess) {onUpdateSuccess();}
+    } catch (err) { alert('Errore DB: ' + err.message); return; }
 
     const element = document.getElementById('pdf-clean-template');
-    
+
     const opt = {
-      margin:       [20, 15, 20, 15], 
+      margin:       [20, 15, 20, 15],
       filename:     `Relazione_${reportTarget === 'ospiti' ? 'Ospiti' : 'Direzione'}_${facility.name}_${latestSurvey.calendar_id}.pdf`,
       image:        { type: 'jpeg', quality: 1 },
-      html2canvas:  { scale: 2, useCORS: true }, 
+      html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
-    
+
     element.style.display = 'block';
-    html2pdf().set(opt).from(element).save().then(() => { 
+    html2pdf().set(opt).from(element).save().then(() => {
       element.style.display = 'none';
-      setTimeout(onClose, 1000); 
+      setTimeout(onClose, 1000);
     });
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col overflow-hidden animate-in fade-in duration-200">
-      
+
       {/* ------------------------------------------------------------- */}
       {/* DOCUMENTO OMBRA: Struttura A4 dinamica per stampa PDF         */}
       {/* ------------------------------------------------------------- */}
       <div style={{ position: 'absolute', left: '-15000px', top: 0 }}>
         <div id="pdf-clean-template" className="bg-white text-black font-sans relative" style={{ width: '180mm', display: 'none' }}>
-          
+
           {/* CARTA INTESTATA PRE-CARICATA */}
           {headerBase64 && <img src={headerBase64} alt="Header" style={{ width: '100%', height: 'auto', marginBottom: '25px' }} />}
-          
+
           {isCompanyWide && (
             <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fcd34d', color: '#b45309', padding: '10px 15px', borderRadius: '8px', marginBottom: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
               ⚠ ATTENZIONE: Questo è un report aggregato a livello di Società. I dati e i posti letto includono tutte le strutture ad essa collegate.
@@ -281,13 +281,12 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
               <Bar dataKey="score" fill="#1e3a8a" radius={[0, 4, 4, 0]} barSize={15} />
             </BarChart>
           </div>
-          
+
           {/* PIÈ DI PAGINA PRE-CARICATO */}
           {footerBase64 && <img src={footerBase64} alt="Footer" style={{ width: '100%', height: 'auto', marginTop: '40px' }} />}
         </div>
       </div>
       {/* ------------------------------------------------------------- */}
-
 
       {/* HEADER DASHBOARD */}
       <div className="h-16 bg-slate-950 border-b border-white/10 flex items-center justify-between px-6 shrink-0">
@@ -317,7 +316,7 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
           <div className="h-full flex items-center justify-center text-slate-500">Nessun dato.</div>
         ) : (
           <div className="max-w-7xl mx-auto space-y-8">
-            
+
             {isCompanyWide && (
               <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 text-amber-200">
                 <AlertTriangle size={24} className="shrink-0 text-amber-400" />
@@ -349,18 +348,18 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-center">Redemption</p>
                 <p className="text-2xl font-black text-white text-center">{redemptionRate !== null ? `${redemptionRate}%` : <span className="text-sm text-slate-500">N/D</span>}</p>
               </div>
-              
+
               <div className="bg-slate-800/50 border border-white/5 p-3 rounded-2xl flex flex-col justify-center gap-2">
-                 <button 
-                   onClick={() => handleAction('ospiti')} 
-                   disabled={isGeneratingAI} 
+                 <button
+                   onClick={() => handleAction('ospiti')}
+                   disabled={isGeneratingAI}
                    className={`w-full py-2 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 transition-all ${reportTarget === 'ospiti' ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                  >
                    <BrainCircuit size={14} /> {isGeneratingAI && reportTarget === 'ospiti' ? 'Elaborazione...' : (latestSurvey.ai_report_ospiti ? 'Report Ospiti' : 'Genera Ospiti')}
                  </button>
-                 <button 
-                   onClick={() => handleAction('direzione')} 
-                   disabled={isGeneratingAI} 
+                 <button
+                   onClick={() => handleAction('direzione')}
+                   disabled={isGeneratingAI}
                    className={`w-full py-2 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 transition-all ${reportTarget === 'direzione' ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                  >
                    <BrainCircuit size={14} /> {isGeneratingAI && reportTarget === 'direzione' ? 'Elaborazione...' : (latestSurvey.ai_report_direzione ? 'Report Direzione' : 'Genera Direzione')}
@@ -404,7 +403,7 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
               </div>
             </div>
 
-            {aiReport !== "" && reportTarget && (
+            {aiReport !== '' && reportTarget && (
               <div className="bg-indigo-950/50 border border-indigo-500/30 p-8 rounded-2xl relative mt-6 animate-in slide-in-from-bottom-4">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-sm font-black text-indigo-300 uppercase tracking-widest flex items-center gap-2">
@@ -414,7 +413,7 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
                     Rigenera con IA
                   </button>
                 </div>
-                
+
                 <textarea
                   value={aiReport}
                   onChange={(e) => setAiReport(e.target.value)}
@@ -422,8 +421,8 @@ export default function AnalyticsModal({ isOpen, onClose, facility, type, survey
                   rows={20}
                 />
 
-                <button 
-                  onClick={handleSaveAndPDF} 
+                <button
+                  onClick={handleSaveAndPDF}
                   className="w-full font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white"
                 >
                   <FileDown size={20} className="inline mr-2" />

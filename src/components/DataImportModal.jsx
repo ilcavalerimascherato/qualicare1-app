@@ -7,10 +7,10 @@ export default function DataImportModal({ isOpen, onClose, facility, type, year,
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
-  const [uploadScope, setUploadScope] = useState('company'); 
+  const [uploadScope, setUploadScope] = useState('company');
   const [mappings, setMappings] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // IL NUOVO SELETTORE TEMPORALE: Impostato di default su Dicembre (12)
   const [selectedMonth, setSelectedMonth] = useState('12');
 
@@ -34,11 +34,11 @@ export default function DataImportModal({ isOpen, onClose, facility, type, year,
     }
   }, [isOpen, type]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
 const normalizeValue = (raw, mappingRule) => {
-    if (raw === null || raw === undefined || raw === '') return null;
-    let rawStr = String(raw).toLowerCase().trim();
+    if (raw === null || raw === undefined || raw === '') {return null;}
+    const rawStr = String(raw).toLowerCase().trim();
 
     // DIZIONARIO DI TRADUZIONE SEMANTICA (Il tuo nuovo salvavita)
     const textToNum = {
@@ -47,27 +47,27 @@ const normalizeValue = (raw, mappingRule) => {
       'per nulla soddisfatte': 1, 'poco soddisfatte': 2, 'soddisfatte': 4, 'molto soddisfatte': 5,
       'insufficiente': 1, 'sufficiente': 3, 'buono': 4, 'ottimo': 5,
       'mai': 1, 'raramente': 2, 'qualche volta': 3, 'spesso': 4, 'sempre': 5,
-      'no': 1, 'si': mappingRule.scale_max || 10 
+      'no': 1, 'si': mappingRule.scale_max || 10
     };
 
     let val = null;
-    
+
     // 1. Cerca un match testuale diretto
     if (textToNum[rawStr] !== undefined) {
       val = textToNum[rawStr];
     } else {
       // 2. Se non trova il testo, cerca il numero classico
       const match = rawStr.match(/\d+/);
-      if (match) val = parseInt(match[0]);
+      if (match) {val = parseInt(match[0]);}
     }
 
-    if (val === null) return null;
+    if (val === null) {return null;}
 
     const max = mappingRule.scale_max || 10;
     const min = 1;
 
     // Se sfora, scartiamo per non sporcare i dati
-    if (val > max || val < min) return null;
+    if (val > max || val < min) {return null;}
 
     // Normalizzazione a 100
     if (mappingRule.is_inverse) {
@@ -77,7 +77,7 @@ const normalizeValue = (raw, mappingRule) => {
   };
 
   const getTokens = (text) => {
-    if (!text) return [];
+    if (!text) {return [];}
     return text.toString()
       .toLowerCase()
       .replace(/[^\w\sàèìòùáéíóú]/gi, ' ')
@@ -90,7 +90,7 @@ const normalizeValue = (raw, mappingRule) => {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    if (mappings.length === 0) return;
+    if (mappings.length === 0) {return;}
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       if (droppedFile.name.match(/\.(xlsx|xls|csv)$/i)) {
@@ -103,7 +103,7 @@ const normalizeValue = (raw, mappingRule) => {
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file) {return;}
 
     if (uploadScope === 'company' && !facility.company_id) {
       setStatus({ type: 'error', msg: 'Errore Strutturale: Questa sede non è associata ad alcuna società nel Database.' });
@@ -114,7 +114,7 @@ const normalizeValue = (raw, mappingRule) => {
     setStatus({ type: 'info', msg: 'Estrazione a Matrice Assoluta in corso...' });
 
     const reader = new FileReader();
-    
+
     reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target.result);
@@ -129,7 +129,7 @@ const normalizeValue = (raw, mappingRule) => {
         for(let i = 0; i < Math.min(20, rawArray.length); i++) {
           const rowArray = rawArray[i] || [];
           const rowStr = rowArray.map(cell => String(cell || '')).join(' ').toLowerCase();
-          
+
           if ((rowStr.includes('risposta') && rowStr.includes('iniziata')) || rowStr.includes('lavori')) {
             headerRowIndex = i;
             break;
@@ -141,13 +141,13 @@ const normalizeValue = (raw, mappingRule) => {
         }
 
         const headers = rawArray[headerRowIndex].map(h => String(h || '').trim());
-        
+
         const rawData = [];
         for(let i = headerRowIndex + 1; i < rawArray.length; i++) {
           const rowArr = rawArray[i] || [];
           let isEmpty = true;
           const rowObj = {};
-          
+
           headers.forEach((h, colIdx) => {
             if (h && h !== '') {
               rowObj[h] = rowArr[colIdx];
@@ -156,35 +156,35 @@ const normalizeValue = (raw, mappingRule) => {
               }
             }
           });
-          
-          if (!isEmpty) rawData.push(rowObj);
+
+          if (!isEmpty) {rawData.push(rowObj);}
         }
 
         if (rawData.length === 0) {
-          throw new Error("Trovate le domande, ma non ci sono risposte valide sottostanti.");
+          throw new Error('Trovate le domande, ma non ci sono risposte valide sottostanti.');
         }
 
         let activeMapping = null;
-        let headerMap = {}; 
+        let headerMap = {};
 
         for (const m of mappings) {
           const mappingKeys = Object.keys(m.mapping_json);
           let matchCount = 0;
-          let tempMap = {};
+          const tempMap = {};
 
           mappingKeys.forEach(mKey => {
             const mTokens = getTokens(mKey);
-            if(mTokens.length === 0) return;
+            if(mTokens.length === 0) {return;}
 
             let bestHeader = null;
             let highestScore = 0;
 
             headers.forEach(h => {
-              if(!h) return;
+              if(!h) {return;}
               const hTokens = getTokens(h);
               const matches = mTokens.filter(t => hTokens.includes(t)).length;
               const score = matches / mTokens.length;
-              
+
               if (score > highestScore) {
                 highestScore = score;
                 bestHeader = h;
@@ -224,7 +224,7 @@ const normalizeValue = (raw, mappingRule) => {
           return cleanRow;
         }).filter(row => Object.keys(row).length > 0);
 
-        if (processedData.length === 0) throw new Error("Nessun voto numerico valido trovato nelle risposte.");
+        if (processedData.length === 0) {throw new Error('Nessun voto numerico valido trovato nelle risposte.');}
 
         // IL NUOVO MOTORE DI SALVATAGGIO TEMPORALE
         const payload = {
@@ -232,7 +232,7 @@ const normalizeValue = (raw, mappingRule) => {
           year: year,
           calendar_id: `${year}-${selectedMonth}`, // <-- AGGANCIO ALLA DIMENSIONE CALENDARIO
           responses_json: processedData,
-          summary_stats: { 
+          summary_stats: {
             total_responses: processedData.length,
             mapping_used: activeMapping.mapping_name
           }
@@ -251,7 +251,7 @@ const normalizeValue = (raw, mappingRule) => {
           .from('survey_data')
           .upsert(payload, { onConflict: 'facility_id, type, calendar_id' });
 
-        if (error) throw error;
+        if (error) {throw error;}
 
         setStatus({ type: 'success', msg: `BINGO! Caricate ${processedData.length} risposte per ${selectedMonth}/${year}.` });
         setTimeout(() => {
@@ -293,7 +293,7 @@ const normalizeValue = (raw, mappingRule) => {
         </div>
 
         <div className="p-8">
-          
+
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
               <button
@@ -318,9 +318,9 @@ const normalizeValue = (raw, mappingRule) => {
             <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl">
               <Calendar size={18} className="text-indigo-500" />
               <span className="text-sm font-bold text-slate-600 uppercase">Periodo:</span>
-              <select 
-                value={selectedMonth} 
-                onChange={(e) => setSelectedMonth(e.target.value)} 
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
                 className="bg-transparent font-black text-indigo-900 outline-none flex-1 cursor-pointer"
               >
                 {months.map(m => (
@@ -330,24 +330,24 @@ const normalizeValue = (raw, mappingRule) => {
             </div>
           </div>
 
-          <div 
+          <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center transition-all cursor-pointer ${
               mappings.length === 0 ? 'border-rose-300 bg-rose-50 cursor-not-allowed opacity-70' :
-              isDragging ? 'border-indigo-600 bg-indigo-100 scale-105' : 
+              isDragging ? 'border-indigo-600 bg-indigo-100 scale-105' :
               file ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:border-indigo-400 bg-slate-50'
             }`}
           >
-            <input 
-              type="file" 
-              accept=".xlsx, .xls, .csv" 
+            <input
+              type="file"
+              accept=".xlsx, .xls, .csv"
               onChange={(e) => {
                 setFile(e.target.files[0]);
                 setStatus({ type: '', msg: '' });
               }}
-              className="hidden" 
+              className="hidden"
               id="excel-upload"
               disabled={mappings.length === 0}
             />
@@ -362,11 +362,11 @@ const normalizeValue = (raw, mappingRule) => {
 
           {status.msg && (
             <div className={`mt-6 p-4 rounded-xl flex items-start gap-3 text-sm font-bold leading-snug ${
-              status.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 
+              status.type === 'success' ? 'bg-emerald-50 text-emerald-700' :
               status.type === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'
             }`}>
-              {status.type === 'success' ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : 
-               status.type === 'error' ? <AlertCircle size={18} className="shrink-0 mt-0.5" /> : 
+              {status.type === 'success' ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> :
+               status.type === 'error' ? <AlertCircle size={18} className="shrink-0 mt-0.5" /> :
                <Loader2 size={18} className="shrink-0 mt-0.5 animate-spin" />}
               <p>{status.msg}</p>
             </div>

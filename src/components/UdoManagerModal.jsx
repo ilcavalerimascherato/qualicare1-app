@@ -8,7 +8,7 @@ export default function UdoManagerModal({ isOpen, onClose, udos, onSave, onDelet
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#4f46e5');
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -17,7 +17,7 @@ export default function UdoManagerModal({ isOpen, onClose, udos, onSave, onDelet
           <h2 className="text-lg font-bold">Configurazione UDO</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
         </div>
-        
+
         <div className="p-6 space-y-6">
           {/* Form Nuovo */}
           <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 space-y-3">

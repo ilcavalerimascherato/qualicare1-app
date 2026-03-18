@@ -5,39 +5,39 @@ import { supabase } from '../supabaseClient';
 const MONTHS = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
 
 export default function KpiManagerModal({ isOpen, onClose, facility, year, onUpdateSuccess }) {
-  const [activeMonth, setActiveMonth] = useState(null); 
+  const [activeMonth, setActiveMonth] = useState(null);
   const [kpiDefs, setKpiDefs] = useState([]);
-  const [kpiData, setKpiData] = useState([]); 
+  const [kpiData, setKpiData] = useState([]);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isOpen || !facility) return;
+    if (!isOpen || !facility) {return;}
     const fetchData = async () => {
       setLoading(true);
       try {
-        const { data: defs } = await supabase.from('dim_kpis').select('*').order('id', { ascending: true });
+        const { data: defs } = await supabase.from('dim_kpis').select('*').order('sort_order', { ascending: true });
         setKpiDefs(defs || []);
         const { data: records } = await supabase.from('fact_kpi_monthly').select('*').eq('facility_id', facility.id).eq('year', year);
         setKpiData(records || []);
-      } catch (err) { console.error("Errore fetch KPI", err); }
+      } catch (err) { console.error('Errore fetch KPI', err); }
       setLoading(false);
     };
     fetchData();
   }, [isOpen, facility, year]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const handleOpenMonth = (monthIndex) => {
-    const month = monthIndex + 1; 
+    const month = monthIndex + 1;
     const existingRecord = kpiData.find(d => d.month === month);
-    
-    let initialForm = {};
+
+    const initialForm = {};
     kpiDefs.forEach(k => {
       const existingValue = existingRecord?.metrics_json?.[k.indicator_name];
       initialForm[k.indicator_name] = existingValue || { value: '', is_na: false };
     });
-    
+
     setFormData(initialForm);
     setActiveMonth(month);
   };
@@ -57,35 +57,35 @@ export default function KpiManagerModal({ isOpen, onClose, facility, year, onUpd
     try {
       const payload = { facility_id: facility.id, year, month: activeMonth, status, metrics_json: formData, updated_at: new Date().toISOString() };
       const { error } = await supabase.from('fact_kpi_monthly').upsert(payload, { onConflict: 'facility_id, year, month' });
-      if (error) throw error;
+      if (error) {throw error;}
       setKpiData(prev => [...prev.filter(p => p.month !== activeMonth), { ...payload, id: 'temp' }]);
-      setActiveMonth(null); 
-      if (onUpdateSuccess) onUpdateSuccess();
-    } catch (err) { alert("Errore: " + err.message); }
+      setActiveMonth(null);
+      if (onUpdateSuccess) {onUpdateSuccess();}
+    } catch (err) { alert('Errore: ' + err.message); }
   };
 
   const getMonthStatus = (i) => {
     const month = i + 1;
     const record = kpiData.find(d => d.month === month);
-    
-    if (record?.status === 'completed') return { color: 'bg-emerald-500', text: 'Inviato', icon: CheckCircle2, textCol: 'text-emerald-700', bgCol: 'bg-emerald-50', border: 'border-emerald-200' };
-    if (record?.status === 'draft') return { color: 'bg-amber-400', text: 'Bozza', icon: Clock, textCol: 'text-amber-700', bgCol: 'bg-amber-50', border: 'border-amber-200' };
-    
+
+    if (record?.status === 'completed') {return { color: 'bg-emerald-500', text: 'Inviato', icon: CheckCircle2, textCol: 'text-emerald-700', bgCol: 'bg-emerald-50', border: 'border-emerald-200' };}
+    if (record?.status === 'draft') {return { color: 'bg-amber-400', text: 'Bozza', icon: Clock, textCol: 'text-amber-700', bgCol: 'bg-amber-50', border: 'border-amber-200' };}
+
     // LOGICA TEMPORALE BLINDATA: Il mese è compilabile SOLO se è interamente trascorso.
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
     const isActionable = (year < currentYear) || (year === currentYear && month < currentMonth);
 
-    return isActionable 
-      ? { color: 'bg-rose-500', text: 'Mancante', icon: AlertCircle, textCol: 'text-rose-700', bgCol: 'bg-rose-50', border: 'border-rose-200' } 
+    return isActionable
+      ? { color: 'bg-rose-500', text: 'Mancante', icon: AlertCircle, textCol: 'text-rose-700', bgCol: 'bg-rose-50', border: 'border-rose-200' }
       : { color: 'bg-slate-200', text: 'Futuro', icon: Ban, textCol: 'text-slate-400', bgCol: 'bg-slate-50', border: 'border-slate-100' };
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 font-sans">
-        
+
         {/* HEADER */}
         <div className="bg-slate-950 px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
@@ -95,7 +95,7 @@ export default function KpiManagerModal({ isOpen, onClose, facility, year, onUpd
               <div className="p-2 bg-indigo-600 rounded-lg text-white"><Activity size={20} /></div>
             )}
             <div>
-              <h2 className="text-lg font-black text-white uppercase tracking-wider">{activeMonth ? `${MONTHS[activeMonth-1]} ${year}` : `KPI ${year}`}</h2>
+              <h2 className="text-lg font-black text-white uppercase tracking-wider">{activeMonth ? `${MONTHS[activeMonth-1]} ${year}` : 'Inserimento KPI'}</h2>
               <p className="text-xs text-indigo-400 font-bold uppercase tracking-widest">{facility?.name}</p>
             </div>
           </div>
