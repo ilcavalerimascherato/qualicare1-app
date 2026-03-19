@@ -75,7 +75,6 @@ const AZIONI_AGGIUNTIVE = [
   'Segnalazione / comunicazione a Ente competente',
   'Altro (vedi Note)',
 ];
-const STATI  = ['Aperto', 'Pending', 'Chiuso'];
 const GRAVITA = ['Bassa', 'Media', 'Alta'];
 
 // ── Stili costanti ────────────────────────────────────────────

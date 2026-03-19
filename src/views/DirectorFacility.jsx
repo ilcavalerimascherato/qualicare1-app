@@ -7,7 +7,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import {
   PawPrint, LogOut, ArrowLeft, Activity, BarChart3, Database,
   FileText, AlertTriangle, TrendingUp, CheckCircle2, Clock,
-  Plus, Save, X, Loader2
+  Plus
 } from 'lucide-react';
 
 import { useAuth }                          from '../contexts/AuthContext';
@@ -17,7 +17,7 @@ import { enrichFacilitiesData }             from '../utils/statusCalculator';
 import { supabase }                         from '../supabaseClient';
 import { detectAnomalies }                   from '../utils/kpiAnomalyEngine';
 import NcFormModal                            from '../components/NcFormModal';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line, Legend, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line, Legend, Cell, PieChart, Pie } from 'recharts';
 import { KPI_RULES }                          from '../config/kpiRules';
 import { computeKpiValue }                    from '../utils/kpiFormulaEngine';
 import { getTimeHorizon }                     from '../utils/kpiTimeHorizon';
@@ -35,17 +35,7 @@ const TABS = [
   { id: 'benchmark',        label: 'Benchmark',      Icon: TrendingUp    },
 ];
 
-const NC_CATEGORIES = [
-  'Sicurezza', 'Qualità delle cure', 'Documentazione',
-  'Strutturale / Manutenzione', 'Personale', 'Igiene / Pulizia',
-  'Gestione farmaci', 'Comunicazione', 'Altro',
-];
 
-const NC_SOURCES = [
-  'Survey clienti', 'Survey operatori', 'Ispezione interna',
-  'Audit esterno', 'Segnalazione interna', 'Segnalazione familiare',
-  'Evento avverso',
-];
 
 export default function DirectorFacility() {
   const { facilityId }                    = useParams();
@@ -667,57 +657,6 @@ function SurveySection({ title, Icon, surveys, color, onDataClick }) {
   );
 }
 
-function ReportsTab({ surveys }) {
-  const withReport = surveys
-    .filter(s => s.ai_report_ospiti || s.ai_report_direzione)
-    .sort((a,b) => b.calendar_id.localeCompare(a.calendar_id));
-
-  if (withReport.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-        <FileText size={40} className="mx-auto text-slate-300 mb-4" />
-        <p className="text-slate-500 font-medium">Nessun report AI disponibile.</p>
-        <p className="text-slate-400 text-sm mt-1">I report vengono generati dopo il caricamento dei dati survey.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <h2 className="font-black text-slate-800 text-lg">Report AI generati</h2>
-      {withReport.map(s => (
-        <div key={s.id} className="bg-white rounded-2xl border border-slate-200 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-              s.type === 'client' ? 'bg-indigo-50 text-indigo-700' : 'bg-purple-50 text-purple-700'
-            }`}>
-              {s.type === 'client' ? 'Clienti / Ospiti' : 'Operatori / Staff'}
-            </span>
-            <span className="text-xs text-slate-400">
-              {new Date(s.created_at).toLocaleDateString('it', { day: '2-digit', month: 'long', year: 'numeric' })}
-            </span>
-          </div>
-          {s.ai_report_ospiti && (
-            <div className="mt-2">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Report ospiti/staff</p>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 whitespace-pre-wrap">
-                {s.ai_report_ospiti}
-              </p>
-            </div>
-          )}
-          {s.ai_report_direzione && (
-            <div className="mt-3">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Report direzione</p>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 whitespace-pre-wrap">
-                {s.ai_report_direzione}
-              </p>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function NonConformitiesTab({ facility, year, profile, onNew, onEdit }) {
   const [ncs, setNcs]         = useState([]);
@@ -878,10 +817,6 @@ function getColor(value, rule, isPerc) {
   return '#f59e0b';
 }
 
-function fmt(v) {
-  if (v === null || v === undefined) return '—';
-  return (v * 100).toFixed(1) + '%';
-}
 
 export function BenchmarkTab({ facility, kpiRecords, year }) {
   const [benchData, setBenchData]     = useState([]);
@@ -1168,4 +1103,101 @@ export function BenchmarkTab({ facility, kpiRecords, year }) {
   );
 }
 
+// ── SurveyAnalysisTab ─────────────────────────────────────────
+const PIE_COLORS = ['#10b981','#6366f1','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16'];
 
+function SurveyAnalysisTab({ facility, surveys }) {
+  const [selectedType, setSelectedType] = useState('client');
+
+  const typedSurveys = surveys
+    .filter(s => s.type === selectedType)
+    .sort((a,b) => b.calendar_id.localeCompare(a.calendar_id));
+
+  const latest = typedSurveys[0];
+
+  const questions = useMemo(() => {
+    if (!latest?.responses_json) return [];
+    try {
+      const data = typeof latest.responses_json === 'string'
+        ? JSON.parse(latest.responses_json)
+        : latest.responses_json;
+      if (Array.isArray(data)) return data;
+      return Object.entries(data).map(([question, answers]) => ({ question, answers }));
+    } catch { return []; }
+  }, [latest]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 flex-wrap">
+        {[
+          { value: 'client',   label: 'Clienti / Ospiti',  color: 'bg-indigo-600' },
+          { value: 'operator', label: 'Operatori / Staff',  color: 'bg-purple-600' },
+        ].map(t => (
+          <button key={t.value} onClick={() => setSelectedType(t.value)}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+              selectedType === t.value ? `${t.color} text-white shadow` : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+        {latest && (
+          <span className="ml-auto text-xs text-slate-400 font-medium">
+            Ultimo: {new Date(latest.created_at).toLocaleDateString('it', { day:'2-digit', month:'long', year:'numeric' })}
+          </span>
+        )}
+      </div>
+
+      {latest?.ai_report_direzione && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5">
+          <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-2">Sintesi AI — Report Direzione</p>
+          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{latest.ai_report_direzione}</p>
+        </div>
+      )}
+
+      {questions.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <BarChart3 size={40} className="mx-auto text-slate-300 mb-4" />
+          <p className="text-slate-500 font-medium">
+            {latest ? 'Nessun dato di risposta disponibile.' : 'Nessun survey caricato.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {questions.map((q, qi) => {
+            const entries = Object.entries(typeof q.answers === 'object' ? q.answers : {}).sort(([,a],[,b]) => b - a);
+            const total = entries.reduce((s,[,v]) => s + v, 0);
+            const pieData = entries.map(([name, value]) => ({ name, value }));
+            return (
+              <div key={qi} className="bg-white rounded-2xl border border-slate-200 p-5">
+                <p className="text-sm font-black text-slate-700 mb-4 leading-tight">{q.question}</p>
+                {pieData.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">Nessuna risposta</p>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <ResponsiveContainer width={140} height={140}>
+                      <PieChart>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={65} dataKey="value" paddingAngle={2}>
+                          {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v) => [`${v} (${Math.round(v/total*100)}%)`, '']} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex-1 space-y-1.5">
+                      {entries.map(([name, value], i) => (
+                        <div key={name} className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                          <span className="text-xs text-slate-600 flex-1 truncate" title={name}>{name}</span>
+                          <span className="text-xs font-black text-slate-700">{Math.round(value/total*100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

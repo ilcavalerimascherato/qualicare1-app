@@ -2,7 +2,7 @@
 // Dashboard Qualità HQ — solo admin/superadmin
 // Tab: Mailing List · Non Conformità · Statistiche NC · Export
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Mail, AlertTriangle, BarChart2, Download, CheckCircle2, Clock, Search, Filter, Bell, Send, AlertCircle } from 'lucide-react';
+import { X, Mail, AlertTriangle, BarChart2, Download, CheckCircle2, Search, Bell, Send, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const TABS = [
@@ -506,7 +506,6 @@ function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
   const [checked, setChecked]     = useState(false);
   const [inadempienti, setIn]     = useState([]);
   const [selected, setSelected]   = useState({});
-  const [sending, setSending]     = useState(false);
   const [sentIds, setSentIds]     = useState([]);
 
   const now           = new Date();
