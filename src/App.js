@@ -52,7 +52,7 @@ export default function App() {
     const enriched = enrichFacilitiesData(data.facilities, data.surveys, data.kpiRecords, year, data.udos);
     const stats    = calculateDashboardStats(enriched, 'all');
     return { list: enriched, ...stats };
-  }, [data.facilities, data.surveys, data.kpiRecords, year]);
+  }, [data.facilities, data.surveys, data.kpiRecords, data.udos, year]);
 
   const filteredFacilities = useMemo(() => {
     return processedData.list.filter(f => {

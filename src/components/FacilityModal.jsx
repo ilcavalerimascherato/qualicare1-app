@@ -57,7 +57,7 @@ export default function FacilityModal({ isOpen, onClose, udos, facility, onSave,
     } else {
       setForm(EMPTY);
     }
-  }, [facility?.id, isOpen]);
+  }, [facility?.id, facility, isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isOpen) return;

@@ -505,7 +505,6 @@ const MONTH_NAMES_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno
 function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
   const [checked, setChecked]     = useState(false);
   const [inadempienti, setIn]     = useState([]);
-  const [sending, setSending]     = useState(false);
   const [selected, setSelected]   = useState({});
   const [sentIds, setSentIds]     = useState([]);
 
@@ -671,7 +670,7 @@ function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
                   <button onClick={() => toggleAll(false)} className="text-xs font-bold text-slate-500 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors">Deseleziona tutti</button>
                   <button
                     onClick={handleSendAll}
-                    disabled={selectedCount === 0 || sending}
+                    disabled={selectedCount === 0}
                     className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-indigo-700 disabled:opacity-40 transition-colors shadow"
                   >
                     <Send size={13} /> Invia a selezionati ({selectedCount})
