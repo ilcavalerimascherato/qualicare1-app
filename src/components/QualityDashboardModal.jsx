@@ -505,6 +505,7 @@ const MONTH_NAMES_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno
 function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
   const [checked, setChecked]     = useState(false);
   const [inadempienti, setIn]     = useState([]);
+  const [sending, setSending]     = useState(false);
   const [selected, setSelected]   = useState({});
   const [sentIds, setSentIds]     = useState([]);
 

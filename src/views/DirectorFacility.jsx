@@ -6,7 +6,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   PawPrint, LogOut, ArrowLeft, Activity, BarChart3, Database,
-  FileText, AlertTriangle, TrendingUp, CheckCircle2, Clock,
+  AlertTriangle, TrendingUp, CheckCircle2, Clock,
   Plus
 } from 'lucide-react';
 
