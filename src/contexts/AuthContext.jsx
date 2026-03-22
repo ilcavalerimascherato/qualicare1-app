@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Helper: evita di controllare manualmente il ruolo in tutta l'app
-  const isAdmin      = profile?.role === 'admin' || profile?.role === 'superadmin';
+  const isAdmin      = ['superadmin', 'admin', 'sede'].includes(profile?.role);
   const isSuperAdmin = profile?.role === 'superadmin';
   const isDirector   = profile?.role === 'director';
 

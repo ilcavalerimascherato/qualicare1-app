@@ -29,7 +29,7 @@ import KpiXrayModal           from './components/KpiXrayModal';
 import QualityDashboardModal from './components/QualityDashboardModal';
 
 export default function App() {
-  const { session, loading: authLoading, isAdmin, signOut } = useAuth();
+  const { session, loading: authLoading, isAdmin, profile, signOut } = useAuth();
   const { modals, open, close } = useModals();
   const invalidate = useInvalidate();
 
@@ -159,7 +159,7 @@ export default function App() {
               <PawPrint size={24} />
             </div>
             <h1 className="text-xl font-black tracking-tighter italic">
-              Qualità <span className="text-indigo-600 italic">GRUPPO OVER</span>
+              QualiCAVA <span className="text-indigo-600 italic">GRUPPO OVER</span>
             </h1>
           </div>
 
@@ -447,6 +447,7 @@ export default function App() {
         kpiRecords={data.kpiRecords}
         surveys={data.surveys}
         year={Number(year)}
+        isSuperAdmin={profile?.role === 'superadmin'}
       />
     </div>
   );

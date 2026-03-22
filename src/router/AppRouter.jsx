@@ -33,7 +33,7 @@ function RoleRouter() {
   const { profile, loading } = useAuth();
   if (loading || !profile) return <Splash msg="Verifica profilo..." />;
 
-  if (profile.role === 'superadmin' || profile.role === 'admin') {
+  if (['superadmin', 'admin', 'sede'].includes(profile.role)) {
     return <Navigate to="/admin" replace />;
   }
 

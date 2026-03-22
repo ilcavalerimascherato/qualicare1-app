@@ -388,8 +388,8 @@ export default function NcFormModal({ isOpen, facility, year, profile, ncId = nu
                 </div>
 
                 <Field label="Analisi della dinamica dell'evento" required error={errors.analisi_dinamica}>
-                  <textarea rows={3} value={form.analisi_dinamica} onChange={set('analisi_dinamica')}
-                    className={INP + ' resize-none'}
+                  <textarea rows={5} value={form.analisi_dinamica} onChange={set('analisi_dinamica')}
+                    className={INP + ' resize-y min-h-[80px]'}
                     placeholder="Chi, cosa, quando, dove, come..." />
                 </Field>
 
@@ -409,13 +409,13 @@ export default function NcFormModal({ isOpen, facility, year, profile, ncId = nu
                 </div>
 
                 <Field label="Descrizione cause">
-                  <textarea rows={2} value={form.descrizione_cause} onChange={set('descrizione_cause')}
-                    className={INP + ' resize-none'} placeholder="Dettaglio cause..." />
+                  <textarea rows={3} value={form.descrizione_cause} onChange={set('descrizione_cause')}
+                    className={INP + ' resize-y min-h-[80px]'} placeholder="Dettaglio cause..." />
                 </Field>
 
                 <Field label="Descrizione correzione immediata" required error={errors.correzione_immediata}>
-                  <textarea rows={2} value={form.correzione_immediata} onChange={set('correzione_immediata')}
-                    className={INP + ' resize-none'}
+                  <textarea rows={4} value={form.correzione_immediata} onChange={set('correzione_immediata')}
+                    className={INP + ' resize-y min-h-[80px]'}
                     placeholder="Azioni adottate nell'immediato per contenere il rischio..." />
                 </Field>
 
@@ -430,8 +430,8 @@ export default function NcFormModal({ isOpen, facility, year, profile, ncId = nu
               badge={errCount(['azione_correttiva','responsabile_esecuzione']) > 0 ? `${errCount(['azione_correttiva','responsabile_esecuzione'])} errori` : null}
             >
               <Field label="Descrizione azione correttiva" required error={errors.azione_correttiva}>
-                <textarea rows={3} value={form.azione_correttiva} onChange={set('azione_correttiva')}
-                  className={INP + ' resize-none'}
+                <textarea rows={4} value={form.azione_correttiva} onChange={set('azione_correttiva')}
+                  className={INP + ' resize-y min-h-[80px]'}
                   placeholder="Azioni strutturali definite..." />
               </Field>
               <div className="grid grid-cols-2 gap-4">
@@ -454,8 +454,8 @@ export default function NcFormModal({ isOpen, facility, year, profile, ncId = nu
                 ? `${errCount(['verifica_efficacia','esito_verifica','azioni_aggiuntive','verifica_efficacia_2','esito_verifica_2'])} errori` : null}
             >
               <Field label="Verifica efficacia (evidenze)" required error={errors.verifica_efficacia}>
-                <textarea rows={3} value={form.verifica_efficacia} onChange={set('verifica_efficacia')}
-                  className={INP + ' resize-none'}
+                <textarea rows={4} value={form.verifica_efficacia} onChange={set('verifica_efficacia')}
+                  className={INP + ' resize-y min-h-[80px]'}
                   placeholder="Descrivi le evidenze a supporto della chiusura..." />
               </Field>
               <Field label="Esito verifica efficacia" required error={errors.esito_verifica}>
@@ -479,11 +479,11 @@ export default function NcFormModal({ isOpen, facility, year, profile, ncId = nu
                   </Field>
                   <Field label="Azioni aggiuntive — dettaglio">
                     <textarea rows={2} value={form.azioni_aggiuntive_2} onChange={set('azioni_aggiuntive_2')}
-                      className={INP + ' resize-none'} />
+                      className={INP + ' resize-y min-h-[80px]'} />
                   </Field>
                   <Field label="Secondo ciclo — verifica efficacia" required error={errors.verifica_efficacia_2}>
                     <textarea rows={2} value={form.verifica_efficacia_2} onChange={set('verifica_efficacia_2')}
-                      className={INP + ' resize-none'} placeholder="Evidenze del secondo ciclo..." />
+                      className={INP + ' resize-y min-h-[80px]'} placeholder="Evidenze del secondo ciclo..." />
                   </Field>
                   <Field label="Esito secondo ciclo" required error={errors.esito_verifica_2}>
                     <select value={form.esito_verifica_2} onChange={set('esito_verifica_2')} className={INP}>
@@ -526,7 +526,7 @@ export default function NcFormModal({ isOpen, facility, year, profile, ncId = nu
             <div>
               <label className={LBL}>Note</label>
               <textarea rows={2} value={form.note} onChange={set('note')}
-                className={INP + ' resize-none'} placeholder="Note aggiuntive..." />
+                className={INP + ' resize-y min-h-[80px]'} placeholder="Note aggiuntive..." />
             </div>
 
           </div>

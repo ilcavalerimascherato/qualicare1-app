@@ -2,7 +2,7 @@
 // Dashboard Qualità HQ — solo admin/superadmin
 // Tab: Mailing List · Non Conformità · Statistiche NC · Export
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Mail, AlertTriangle, BarChart2, Download, CheckCircle2, Search, Bell, Send, AlertCircle } from 'lucide-react';
+import { X, Mail, AlertTriangle, BarChart2, Download, CheckCircle2, Search, Bell, Send, AlertCircle, Users, Edit2, Plus, Copy, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 const TABS = [
@@ -10,6 +10,7 @@ const TABS = [
   { id: 'solleciti', label: 'Solleciti',        Icon: Bell         },
   { id: 'nc_stats',  label: 'Statistiche NC',  Icon: BarChart2    },
   { id: 'mailing',   label: 'Mailing List',    Icon: Mail         },
+  { id: 'utenti',    label: 'Utenti',           Icon: Users        },
 ];
 
 const ROLE_FIELDS = [
@@ -20,21 +21,18 @@ const ROLE_FIELDS = [
 ];
 
 const STATUS_CFG = {
-  aperta:         { label: 'Aperta',         bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500'     },
-  in_lavorazione: { label: 'In lavorazione', bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-400'   },
-  risolta:        { label: 'Risolta',        bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  respinta:       { label: 'Respinta',       bg: 'bg-slate-100',  text: 'text-slate-600',   dot: 'bg-slate-400'   },
-  chiusa:         { label: 'Chiusa',         bg: 'bg-slate-100',  text: 'text-slate-600',   dot: 'bg-slate-400'   },
+  Aperto:  { label: 'Aperto',  bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500'     },
+  Pending: { label: 'Pending', bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-400'   },
+  Chiuso:  { label: 'Chiuso',  bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
 };
 
 const SEV_CFG = {
-  bassa:   'bg-slate-100 text-slate-600',
-  media:   'bg-amber-50 text-amber-700',
-  alta:    'bg-orange-50 text-orange-700',
-  critica: 'bg-red-100 text-red-700 font-black',
+  Bassa:  'bg-slate-100 text-slate-600',
+  Media:  'bg-amber-50 text-amber-700',
+  Alta:   'bg-orange-50 text-orange-700',
 };
 
-export default function QualityDashboardModal({ isOpen, onClose, facilities, udos, kpiRecords = [], surveys = [], year }) {
+export default function QualityDashboardModal({ isOpen, onClose, facilities, udos, kpiRecords = [], surveys = [], year, isSuperAdmin = false }) {
   const [activeTab, setActiveTab] = useState('nc_list');
   const [ncs, setNcs]             = useState([]);
   const [loadingNc, setLoadingNc] = useState(true);
@@ -46,13 +44,14 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
   const [hqNoteId, setHqNoteId]   = useState(null);
   const [hqNoteText, setHqNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [expandedNc, setExpandedNc] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setLoadingNc(true);
     supabase
       .from('non_conformities')
-      .select('*, facilities(name, udo_id)')
+      .select('*, facilities(name, udo_id, region)')
       .eq('year', year)
       .order('opened_at', { ascending: false })
       .then(({ data, error }) => {
@@ -102,8 +101,8 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
       const fudo  = nc.facilities?.udo_id;
       const udoName = udos.find(u => u.id === fudo)?.name || '';
       if (ncSearch && !fname.includes(ncSearch.toLowerCase()) && !nc.title?.toLowerCase().includes(ncSearch.toLowerCase())) return false;
-      if (ncStatus !== 'all' && nc.status !== ncStatus) return false;
-      if (ncSeverity !== 'all' && nc.severity !== ncSeverity) return false;
+      if (ncStatus !== 'all' && nc.stato !== ncStatus) return false;
+      if (ncSeverity !== 'all' && nc.gravita !== ncSeverity) return false;
       if (ncUdo !== 'all' && udoName !== ncUdo) return false;
       return true;
     });
@@ -117,8 +116,8 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
     const byUdo      = {};
 
     ncs.forEach(nc => {
-      byStatus[nc.status]     = (byStatus[nc.status]     || 0) + 1;
-      bySeverity[nc.severity] = (bySeverity[nc.severity] || 0) + 1;
+      byStatus[nc.stato]     = (byStatus[nc.stato]     || 0) + 1;
+      bySeverity[nc.gravita] = (bySeverity[nc.gravita] || 0) + 1;
       byCategory[nc.category] = (byCategory[nc.category] || 0) + 1;
       const udoId   = nc.facilities?.udo_id;
       const udoName = udos.find(u => u.id === udoId)?.name || 'N/D';
@@ -151,10 +150,10 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
   const handleUpdateStatus = async (ncId, newStatus) => {
     const { error } = await supabase
       .from('non_conformities')
-      .update({ status: newStatus, ...(newStatus === 'risolta' ? { resolved_at: new Date().toISOString() } : {}) })
+      .update({ stato: newStatus, ...(newStatus === 'Chiuso' ? { data_chiusura: new Date().toISOString().split('T')[0] } : {}) })
       .eq('id', ncId);
     if (!error) {
-      setNcs(prev => prev.map(n => n.id === ncId ? { ...n, status: newStatus } : n));
+      setNcs(prev => prev.map(n => n.id === ncId ? { ...n, stato: newStatus } : n));
     }
   };
 
@@ -199,6 +198,11 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
 
         {/* Contenuto */}
         <div className="flex-1 overflow-y-auto bg-white p-8 min-h-0">
+
+          {/* ── TAB UTENTI ──────────────────────────────────────── */}
+          {activeTab === 'utenti' && (
+            <UtentiTab facilities={facilities} isSuperAdmin={isSuperAdmin} />
+          )}
 
           {/* ── TAB MAILING LIST ─────────────────────────────── */}
           {activeTab === 'mailing' && (
@@ -313,11 +317,13 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
                 </div>
                 <select value={ncStatus} onChange={e => setNcStatus(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none">
                   <option value="all">Tutti gli stati</option>
-                  {Object.entries(STATUS_CFG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+                  <option value="Aperto">Aperto</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Chiuso">Chiuso</option>
                 </select>
                 <select value={ncSeverity} onChange={e => setNcSev(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none">
                   <option value="all">Tutte le severità</option>
-                  {['bassa','media','alta','critica'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {['Bassa','Media','Alta'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <select value={ncUdo} onChange={e => setNcUdo(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold outline-none">
                   <option value="all">Tutte le UDO</option>
@@ -333,11 +339,15 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
               ) : (
                 <div className="space-y-3">
                   {filteredNcs.map(nc => {
-                    const sc  = STATUS_CFG[nc.status] || STATUS_CFG.aperta;
+                    const sc  = STATUS_CFG[nc.stato] || STATUS_CFG.aperta;
                     const isExpanded = hqNoteId === nc.id;
                     return (
                       <div key={nc.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                        <div className="p-5">
+                        {/* Header card — cliccabile per espandere */}
+                        <div
+                          className="p-5 cursor-pointer hover:bg-slate-50 transition-colors"
+                          onClick={() => setExpandedNc(expandedNc === nc.id ? null : nc.id)}
+                        >
                           <div className="flex justify-between items-start gap-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -345,10 +355,10 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
                                   <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
                                   {sc.label}
                                 </span>
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${SEV_CFG[nc.severity]}`}>{nc.severity}</span>
-                                <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">{nc.category}</span>
+                                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${SEV_CFG[nc.gravita] || 'bg-slate-100 text-slate-600'}`}>{nc.gravita}</span>
+                                <span className="text-xs text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">{nc.classificazione}</span>
                               </div>
-                              <h4 className="font-black text-slate-800 mb-1">{nc.title}</h4>
+                              <h4 className="font-black text-slate-800 mb-1">{nc.title || nc.classificazione}</h4>
                               <p className="text-xs text-slate-500 font-bold">
                                 {nc.facilities?.name || '—'} · {new Date(nc.opened_at).toLocaleDateString('it')}
                               </p>
@@ -357,11 +367,11 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
                             <div className="flex flex-col gap-2 shrink-0">
                               {/* Cambio stato rapido */}
                               <select
-                                value={nc.status}
+                                value={nc.stato}
                                 onChange={e => handleUpdateStatus(nc.id, e.target.value)}
                                 className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none cursor-pointer"
                               >
-                                {Object.entries(STATUS_CFG).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+                                {['Aperto','Pending','Chiuso'].map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                               <button
                                 onClick={() => { setHqNoteId(isExpanded ? null : nc.id); setHqNoteText(nc.hq_note || ''); }}
@@ -377,7 +387,40 @@ export default function QualityDashboardModal({ isOpen, onClose, facilities, udo
                               <p className="text-xs text-slate-600">{nc.hq_note}</p>
                             </div>
                           )}
-                        </div>
+                        </div> {/* fine header cliccabile */}
+
+                        {/* Pannello dettaglio NC espanso */}
+                        {expandedNc === nc.id && (
+                          <div className="border-t border-slate-100 bg-slate-50 p-5 space-y-3">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Dettaglio segnalazione</p>
+                            {[
+                              ['Data ricezione',       nc.data_ricezione ? new Date(nc.data_ricezione).toLocaleDateString('it') : null],
+                              ['Segnalazione da',      nc.segnalazione_da],
+                              ['Ambito',               nc.ambito],
+                              ['Analisi dinamica',     nc.analisi_dinamica],
+                              ['Cause evento',         nc.cause_evento],
+                              ['Desc. cause',          nc.descrizione_cause],
+                              ['Tipologia esito',      nc.tipologia_esito],
+                              ['Correzione immediata', nc.correzione_immediata],
+                              ['Azione correttiva',    nc.azione_correttiva],
+                              ['AC entro il',          nc.ac_entro_il ? new Date(nc.ac_entro_il).toLocaleDateString('it') : null],
+                              ['Responsabile',         nc.responsabile_esecuzione],
+                              ['Verifica efficacia',   nc.verifica_efficacia],
+                              ['Esito verifica',       nc.esito_verifica],
+                              ['Azioni aggiuntive',    nc.azioni_aggiuntive],
+                              ['Chiusura da',          nc.verifica_chiusura_da],
+                              ['Data chiusura',        nc.data_chiusura ? new Date(nc.data_chiusura).toLocaleDateString('it') : null],
+                              ['Riscontro segnalante', nc.data_riscontro_segnalante ? new Date(nc.data_riscontro_segnalante).toLocaleDateString('it') : null],
+                              ['Note',                 nc.note],
+                            ].filter(([,v]) => v).map(([label, value]) => (
+                              <div key={label} className="grid grid-cols-3 gap-2 text-sm">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">{label}</span>
+                                <span className="col-span-2 text-slate-700 font-medium">{value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {/* Pannello nota HQ espandibile */}
                         {isExpanded && (
                           <div className="border-t border-indigo-100 bg-indigo-50 p-4">
@@ -512,22 +555,26 @@ function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
   const prevMonth     = now.getMonth() === 0 ? 12 : now.getMonth();
   const prevMonthYear = now.getMonth() === 0 ? year - 1 : year;
 
-  const runCheck = () => {
+  const runCheck = (tipo = 'all') => {
     const results = [];
 
     facilities.filter(f => !f.is_suspended).forEach(f => {
       const mancanze = [];
 
       // KPI mese precedente
-      const kpiRec = kpiRecords.find(k =>
-        String(k.facility_id) === String(f.id) &&
-        Number(k.year)  === prevMonthYear &&
-        Number(k.month) === prevMonth
-      );
-      if (!kpiRec || kpiRec.status !== 'completed') {
-        mancanze.push(`KPI ${MONTH_NAMES_FULL[prevMonth - 1]} ${prevMonthYear} non consolidati`);
+      if (tipo === 'all' || tipo === 'kpi') {
+        const kpiRec = kpiRecords.find(k =>
+          String(k.facility_id) === String(f.id) &&
+          Number(k.year)  === prevMonthYear &&
+          Number(k.month) === prevMonth
+        );
+        if (!kpiRec || kpiRec.status !== 'completed') {
+          mancanze.push(`KPI ${MONTH_NAMES_FULL[prevMonth - 1]} ${prevMonthYear} non consolidati`);
+        }
       }
 
+      // Questionari (solo se tipo = 'all' o 'survey')
+      if (tipo === 'all' || tipo === 'survey') {
       // Questionario clienti
       const cSurvey = surveys
         .filter(s => s.type === 'client' &&
@@ -547,6 +594,7 @@ function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
       if (!oSurvey || (!oSurvey.ai_report_ospiti && !oSurvey.ai_report_direzione)) {
         mancanze.push('Questionario Operatori non completato');
       }
+      } // fine blocco questionari
 
       if (!mancanze.length) return;
 
@@ -626,18 +674,30 @@ function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
         <div>
           <h3 className="font-black text-slate-800 text-lg">Verifica inadempienze</h3>
           <p className="text-sm text-slate-400 mt-0.5">
-            Controlla KPI e questionari per il mese di{' '}
-            <span className="font-bold text-slate-600">
-              {MONTH_NAMES_FULL[prevMonth - 1]} {prevMonthYear}
-            </span>
+            Mese KPI: <span className="font-bold text-slate-600">{MONTH_NAMES_FULL[prevMonth - 1]} {prevMonthYear}</span>
+            {' · '}Questionari: <span className="font-bold text-slate-600">anno {year} in corso</span>
           </p>
         </div>
-        <button
-          onClick={runCheck}
-          className="flex items-center gap-2 bg-rose-600 text-white px-5 py-2.5 rounded-xl text-sm font-black hover:bg-rose-700 transition-colors shadow"
-        >
-          <Bell size={15} /> Esegui verifica
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => runCheck('kpi')}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-black hover:bg-indigo-700 transition-colors shadow"
+          >
+            <Bell size={15} /> Verifica KPI
+          </button>
+          <button
+            onClick={() => runCheck('survey')}
+            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-xl text-sm font-black hover:bg-purple-700 transition-colors shadow"
+          >
+            <Bell size={15} /> Verifica Questionari
+          </button>
+          <button
+            onClick={() => runCheck('all')}
+            className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2.5 rounded-xl text-sm font-black hover:bg-rose-700 transition-colors shadow"
+          >
+            <Bell size={15} /> Verifica Tutto
+          </button>
+        </div>
       </div>
 
       {/* Risultati */}
@@ -771,6 +831,396 @@ function SollecitiTab({ facilities, udos, kpiRecords, surveys, year }) {
           <p className="text-slate-400 text-sm mt-1">
             Verranno controllati KPI e questionari per {MONTH_NAMES_FULL[prevMonth - 1]} {prevMonthYear}
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── UtentiTab ─────────────────────────────────────────────────
+const RUOLI = ['superadmin', 'sede', 'admin', 'director'];
+const RUOLO_COLORS = {
+  superadmin: 'bg-purple-50 text-purple-700 border-purple-200',
+  sede:       'bg-indigo-50 text-indigo-700 border-indigo-200',
+  admin:      'bg-blue-50 text-blue-700 border-blue-200',
+  director:   'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
+
+function UtentiTab({ facilities, isSuperAdmin }) {
+  const [utenti, setUtenti]           = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [editingId, setEditingId]     = useState(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [search, setSearch]           = useState('');
+  const [sqlCmd, setSqlCmd]           = useState('');
+  const [showSql, setShowSql]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+
+  const loadUtenti = () => {
+    setLoading(true);
+    supabase
+      .from('user_profiles')
+      .select('id, email, full_name, role, company_id, created_at, updated_at, user_facility_access!user_facility_access_user_id_fkey(facility_id)')
+      .order('full_name')
+      .then(({ data, error }) => {
+        if (!error) setUtenti(data || []);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => { loadUtenti(); }, []);
+
+  const filtered = utenti.filter(u =>
+    !search ||
+    u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+    u.email?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Genera SQL per creazione utente (da eseguire su Supabase)
+  const generateSql = (form) => {
+    const facilityInserts = form.facilityIds.length > 0
+      ? form.facilityIds.map(fid =>
+          `INSERT INTO public.user_facility_access (user_id, facility_id)\n  SELECT id, ${fid} FROM public.user_profiles WHERE email = '${form.email}';`
+        ).join('\n')
+      : '';
+
+    return `-- 1. Crea utente in Supabase Authentication → Users → Add user
+--    Email: ${form.email}
+--    Password: (imposta una password temporanea)
+
+-- 2. Poi esegui questo SQL:
+UPDATE public.user_profiles
+SET role       = '${form.role}',
+    company_id = ${form.companyId || 'NULL'},
+    full_name  = '${form.fullName}'
+WHERE email = '${form.email}';
+
+${facilityInserts}
+
+-- 3. Verifica
+SELECT id, email, role, full_name FROM public.user_profiles WHERE email = '${form.email}';`;
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="font-black text-slate-800 text-lg">Gestione Utenti</h3>
+          <p className="text-sm text-slate-400 mt-0.5">{utenti.length} utenti registrati</p>
+        </div>
+        <button
+          onClick={() => { setShowNewForm(true); setShowSql(false); setSqlCmd(''); }}
+          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-black hover:bg-indigo-700 transition-colors shadow"
+        >
+          <Plus size={15} /> Nuovo utente
+        </button>
+      </div>
+
+      {/* Form nuovo utente */}
+      {showNewForm && (
+        <NuovoUtenteForm
+          facilities={facilities}
+          onGenerate={(form) => { setSqlCmd(generateSql(form)); setShowSql(true); }}
+          onClose={() => setShowNewForm(false)}
+        />
+      )}
+
+      {/* SQL generato */}
+      {showSql && sqlCmd && (
+        <div className="bg-slate-900 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-black text-emerald-400 uppercase tracking-widest">
+              SQL da eseguire su Supabase → SQL Editor
+            </p>
+            <button
+              onClick={() => { navigator.clipboard.writeText(sqlCmd); }}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Copy size={12} /> Copia
+            </button>
+          </div>
+          <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">{sqlCmd}</pre>
+          <p className="text-xs text-amber-400 mt-3 font-bold">
+            ⚠ Prima crea l'utente in Supabase Authentication → Users → Add user, poi esegui questo SQL.
+          </p>
+          <button
+            onClick={() => { setShowSql(false); setShowNewForm(false); loadUtenti(); }}
+            className="mt-3 text-xs font-bold text-emerald-400 hover:text-emerald-300"
+          >
+            Ho eseguito il SQL → Ricarica lista
+          </button>
+        </div>
+      )}
+
+      {/* Ricerca */}
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Cerca per nome o email..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-indigo-400"
+        />
+      </div>
+
+      {/* Lista utenti */}
+      {loading ? (
+        <div className="text-center py-12 text-slate-400 animate-pulse font-bold">Caricamento...</div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(u => (
+            <UtenteCard
+              key={u.id}
+              utente={u}
+              facilities={facilities}
+              isEditing={editingId === u.id}
+              isSuperAdmin={isSuperAdmin}
+              onEdit={() => setEditingId(u.id)}
+              onCancel={() => setEditingId(null)}
+              onSaved={() => { setEditingId(null); loadUtenti(); }}
+              saving={saving}
+              setSaving={setSaving}
+            />
+          ))}
+          {filtered.length === 0 && (
+            <div className="text-center py-8 text-slate-400 font-bold">Nessun utente trovato</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NuovoUtenteForm({ facilities, onGenerate, onClose }) {
+  const [form, setForm] = useState({
+    email: '', fullName: '', role: 'director', companyId: '', facilityIds: [],
+  });
+
+  const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
+  const toggleFacility = id => setForm(p => ({
+    ...p,
+    facilityIds: p.facilityIds.includes(id)
+      ? p.facilityIds.filter(x => x !== id)
+      : [...p.facilityIds, id],
+  }));
+
+  const INP2 = 'w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400';
+
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 space-y-4">
+      <h4 className="font-black text-indigo-700 text-sm uppercase tracking-widest">Nuovo utente</h4>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Email *</label>
+          <input type="email" value={form.email} onChange={set('email')} className={INP2} placeholder="nome@azienda.it" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Nome completo *</label>
+          <input type="text" value={form.fullName} onChange={set('fullName')} className={INP2} placeholder="Nome Cognome" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Ruolo *</label>
+          <select value={form.role} onChange={set('role')} className={INP2}>
+            {RUOLI.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Company ID (lascia vuoto per accesso globale)</label>
+          <input type="number" value={form.companyId} onChange={set('companyId')} className={INP2} placeholder="es. 11" />
+        </div>
+      </div>
+
+      {form.role === 'director' && (
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-2">Strutture assegnate</label>
+          <div className="max-h-40 overflow-y-auto grid grid-cols-2 gap-1.5">
+            {facilities.filter(f => !f.is_suspended).map(f => (
+              <label key={f.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs font-medium transition-colors ${
+                form.facilityIds.includes(f.id) ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={form.facilityIds.includes(f.id)}
+                  onChange={() => toggleFacility(f.id)}
+                  className="accent-indigo-600"
+                />
+                {f.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <button onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">
+          Annulla
+        </button>
+        <button
+          onClick={() => {
+            if (!form.email || !form.fullName) return;
+            onGenerate(form);
+          }}
+          className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-black hover:bg-indigo-700 transition-colors"
+        >
+          <Copy size={13} /> Genera SQL
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function UtenteCard({ utente: u, facilities, isEditing, isSuperAdmin, onEdit, onCancel, onSaved, saving, setSaving }) {
+  const [form, setForm] = useState({
+    role:       u.role,
+    full_name:  u.full_name || '',
+    company_id: u.company_id || '',
+    facilityIds: (u.user_facility_access || []).map(a => a.facility_id),
+  });
+
+  const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }));
+  const toggleFacility = id => setForm(p => ({
+    ...p,
+    facilityIds: p.facilityIds.includes(id)
+      ? p.facilityIds.filter(x => x !== id)
+      : [...p.facilityIds, id],
+  }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Aggiorna profilo
+      await supabase.from('user_profiles').update({
+        role:       form.role,
+        full_name:  form.full_name,
+        company_id: form.company_id ? parseInt(form.company_id) : null,
+      }).eq('id', u.id);
+
+      // Se director: aggiorna strutture assegnate
+      if (form.role === 'director') {
+        await supabase.from('user_facility_access').delete().eq('user_id', u.id);
+        if (form.facilityIds.length > 0) {
+          await supabase.from('user_facility_access').insert(
+            form.facilityIds.map(fid => ({ user_id: u.id, facility_id: fid }))
+          );
+        }
+      }
+      onSaved();
+    } catch (err) {
+      alert('Errore: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const INP2 = 'w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400';
+  const assignedFacilities = (u.user_facility_access || []).map(a => {
+    const f = facilities.find(x => x.id === a.facility_id);
+    return f?.name || `ID ${a.facility_id}`;
+  });
+
+  return (
+    <div className={`bg-white border rounded-2xl overflow-hidden transition-all ${isEditing ? 'border-indigo-300 shadow-md' : 'border-slate-200'}`}>
+      <div className="flex items-center justify-between p-4 gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+            <span className="text-sm font-black text-indigo-600">
+              {(u.full_name || u.email || '?')[0].toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="font-black text-slate-800 truncate">{u.full_name || '— nessun nome —'}</p>
+            <p className="text-xs text-slate-400 truncate">{u.email}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {(u.updated_at && u.updated_at !== u.created_at) ? (
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                  ● Ha effettuato accesso
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                  ● In attesa primo accesso
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-xs font-black px-2.5 py-1 rounded-lg border ${RUOLO_COLORS[u.role] || 'bg-slate-100 text-slate-600'}`}>
+            {u.role}
+          </span>
+          {!isEditing && (
+            <button
+              onClick={onEdit}
+              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+            >
+              <Edit2 size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Strutture assegnate (solo lettura) */}
+      {!isEditing && u.role === 'director' && assignedFacilities.length > 0 && (
+        <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+          {assignedFacilities.map((name, i) => (
+            <span key={i} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-medium">
+              {name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Form modifica */}
+      {isEditing && (
+        <div className="border-t border-indigo-100 bg-indigo-50 p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Nome completo</label>
+              <input type="text" value={form.full_name} onChange={set('full_name')} className={INP2} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Ruolo</label>
+              <select value={form.role} onChange={set('role')} className={INP2}>
+                {RUOLI.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Company ID (vuoto = accesso globale)</label>
+              <input type="number" value={form.company_id} onChange={set('company_id')} className={INP2} placeholder="es. 11" />
+            </div>
+          </div>
+
+          {form.role === 'director' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-2">Strutture assegnate</label>
+              <div className="max-h-40 overflow-y-auto grid grid-cols-2 gap-1.5">
+                {facilities.filter(f => !f.is_suspended).map(f => (
+                  <label key={f.id} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer text-xs font-medium transition-colors ${
+                    form.facilityIds.includes(f.id) ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={form.facilityIds.includes(f.id)}
+                      onChange={() => toggleFacility(f.id)}
+                      className="accent-indigo-600"
+                    />
+                    {f.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onCancel} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">
+              Annulla
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-black hover:bg-indigo-700 disabled:opacity-60 transition-colors">
+              {saving ? 'Salvo...' : 'Salva modifiche'}
+            </button>
+          </div>
         </div>
       )}
     </div>

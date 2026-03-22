@@ -7,7 +7,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import {
   PawPrint, LogOut, ArrowLeft, Activity, BarChart3, Database,
   AlertTriangle, TrendingUp, CheckCircle2, Clock,
-  Plus
+  Plus, Save, Loader2, X
 } from 'lucide-react';
 
 import { useAuth }                          from '../contexts/AuthContext';
@@ -241,6 +241,7 @@ export default function DirectorFacility() {
 
       {modals.nonConformity && (
         <NcFormModal
+          key={ncEditId || 'new-nc'}
           isOpen={modals.nonConformity}
           facility={facility}
           year={year}
@@ -275,29 +276,167 @@ function StatusPill({ label, isOk, isPartial }) {
   );
 }
 
+// Pannello organico con stato utenti — sostituisce OverviewTab in DirectorFacility
+// Logica stati:
+// - Nessuna mail → grigio, invita a compilare
+// - Mail presente, no account → giallo, mostra istruzioni invito
+// - Account presente, accesso mai fatto → arancione "In attesa"  
+// - Account presente, ha fatto accesso → verde "Attivo"
+
+const ORG_CONFIG = [
+  { key: 'director',            emailKey: 'email_direzione',           userIdKey: 'dir_user_id',      label: 'Direttore',          icon: '👤', canEdit: true  },
+  { key: 'director_sanitario',  emailKey: 'email_sanitario',           userIdKey: 'dir_san_user_id',  label: 'Dir. Sanitario',     icon: '⚕️', canEdit: false },
+  { key: 'referente_struttura', emailKey: 'email_referente_struttura', userIdKey: 'ref_str_user_id',  label: 'Ref. Struttura',     icon: '🏠', canEdit: false },
+  { key: 'referent',            emailKey: 'email_qualita',             userIdKey: 'ref_qual_user_id', label: 'Ref. Qualità',       icon: '✅', canEdit: false },
+];
+
+function OrgStatoPill({ email, userId, userProfiles }) {
+  if (!email) return (
+    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
+      Nessuna mail
+    </span>
+  );
+  
+  const profile = userProfiles.find(p => p.email === email);
+  
+  if (!profile) return (
+    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+      ● Da invitare
+    </span>
+  );
+  
+  // Ha account — controlla last_sign_in
+  const hasSignedIn = profile.last_sign_in_at || profile.updated_at !== profile.created_at;
+  
+  if (hasSignedIn) return (
+    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+      ● Attivo
+    </span>
+  );
+  
+  return (
+    <span className="text-[10px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-lg">
+      ● In attesa
+    </span>
+  );
+}
+
+function InvitoPanel({ figura, email, facilityName, onClose }) {
+  const [copied, setCopied] = useState(false);
+  
+  const sql = `-- Invita ${figura} per ${facilityName}
+-- 1. Vai su Supabase → Authentication → Users → Add user
+--    Email: ${email}
+--    Spunta "Send welcome email" o usa "Send invite"
+
+-- 2. Dopo la creazione, esegui:
+UPDATE public.user_profiles
+SET role = 'director', full_name = '${figura}'
+WHERE email = '${email}';
+
+-- 3. Assegna accesso alla struttura:
+INSERT INTO public.user_facility_access (user_id, facility_id)
+SELECT p.id, f.id
+FROM public.user_profiles p, public.facilities f
+WHERE p.email = '${email}' AND f.name = '${facilityName}'
+ON CONFLICT DO NOTHING;`;
+
+  const copy = () => {
+    navigator.clipboard.writeText(sql);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-2">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-black text-amber-700 uppercase tracking-widest">
+          Istruzioni invito — {email}
+        </p>
+        <button onClick={onClose} className="text-amber-400 hover:text-amber-700">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="bg-slate-900 rounded-lg p-3 mb-3">
+        <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto">{sql}</pre>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={copy}
+          className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+            copied ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+          }`}>
+          {copied ? '✓ Copiato!' : '📋 Copia SQL'}
+        </button>
+        <a
+          href="https://supabase.com/dashboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs font-bold bg-slate-800 text-white px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors"
+        >
+          Apri Supabase →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function OverviewTab({ facility: f, surveys, year }) {
+  const [userProfiles, setUserProfiles] = useState([]);
+  const [showInvito, setShowInvito]     = useState(null); // key della figura
+  const [editingOrg, setEditingOrg]     = useState(false);
+  const [orgForm, setOrgForm]           = useState({
+    director:                  f.director                      || '',
+    email_direzione:           f.email_direzione               || '',
+    director_sanitario:        f.director_sanitario            || '',
+    email_sanitario:           f.email_sanitario               || '',
+    referente_struttura:       f.referente_struttura           || '',
+    email_referente_struttura: f.email_referente_struttura     || '',
+    referent:                  f.referent                      || '',
+    email_qualita:             f.email_qualita                 || '',
+  });
+  const [savingOrg, setSavingOrg] = useState(false);
+
+  // Carica profili utenti per verificare stato account
+  useEffect(() => {
+    supabase
+      .from('user_profiles')
+      .select('id, email, created_at, updated_at, role')
+      .then(({ data }) => { if (data) setUserProfiles(data); });
+  }, []);
+
   const clientSurvey   = surveys.filter(s => s.type === 'client').sort((a,b) => b.calendar_id.localeCompare(a.calendar_id))[0];
   const operatorSurvey = surveys.filter(s => s.type === 'operator').sort((a,b) => b.calendar_id.localeCompare(a.calendar_id))[0];
 
-  const cards = [
+  const statusCards = [
     { label: 'Survey Clienti',   value: f.clientStatus === 'completed' ? 'Completata' : f.clientStatus === 'pending' ? 'In elaborazione' : 'Da avviare', isOk: f.clientStatus === 'completed', detail: clientSurvey ? `Caricata: ${new Date(clientSurvey.created_at).toLocaleDateString('it')}` : 'Nessun dato' },
-    { label: 'Survey Operatori',  value: f.staffStatus  === 'completed' ? 'Completata' : f.staffStatus  === 'pending' ? 'In elaborazione' : 'Da avviare', isOk: f.staffStatus  === 'completed', detail: operatorSurvey ? `Caricata: ${new Date(operatorSurvey.created_at).toLocaleDateString('it')}` : 'Nessun dato' },
-    { label: 'KPI Mensili',       value: f.isKpiGreen ? 'In regola' : 'Mesi mancanti',                                                                        isOk: f.isKpiGreen,                   detail: `Anno ${year}` },
+    { label: 'Survey Operatori', value: f.staffStatus  === 'completed' ? 'Completata' : f.staffStatus  === 'pending' ? 'In elaborazione' : 'Da avviare', isOk: f.staffStatus  === 'completed', detail: operatorSurvey ? `Caricata: ${new Date(operatorSurvey.created_at).toLocaleDateString('it')}` : 'Nessun dato' },
+    { label: 'KPI Mensili',      value: f.isKpiGreen ? 'In regola' : 'Mesi mancanti', isOk: f.isKpiGreen, detail: `Anno ${year}` },
   ];
 
-  const ORG = [
-    { label: 'Direttore',       name: f.director,            email: f.email_direzione           },
-    { label: 'Dir. Sanitario',  name: f.director_sanitario,  email: f.email_sanitario           },
-    { label: 'Ref. Struttura',  name: f.referente_struttura, email: f.email_referente_struttura },
-    { label: 'Ref. Qualità',    name: f.referent,            email: f.email_qualita             },
-  ];
+  const handleSaveOrg = async () => {
+    setSavingOrg(true);
+    const { error } = await supabase.from('facilities').update({
+      director:                  orgForm.director.trim()                   || null,
+      email_direzione:           orgForm.email_direzione.trim()            || null,
+      director_sanitario:        orgForm.director_sanitario.trim()         || null,
+      email_sanitario:           orgForm.email_sanitario.trim()            || null,
+      referente_struttura:       orgForm.referente_struttura.trim()        || null,
+      email_referente_struttura: orgForm.email_referente_struttura.trim()  || null,
+      referent:                  orgForm.referent.trim()                   || null,
+      email_qualita:             orgForm.email_qualita.trim()              || null,
+    }).eq('id', f.id);
+    setSavingOrg(false);
+    if (error) { toast.error('Errore salvataggio: ' + error.message); return; }
+    toast.success('Organico aggiornato');
+    setEditingOrg(false);
+  };
 
   return (
     <div className="space-y-6">
 
       {/* 3 card stato */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {cards.map(c => (
+        {statusCards.map(c => (
           <div key={c.label} className={`bg-white rounded-2xl border p-5 ${c.isOk ? 'border-emerald-200' : 'border-slate-200'}`}>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{c.label}</p>
             <div className="flex items-center gap-2 mb-1">
@@ -313,12 +452,8 @@ function OverviewTab({ facility: f, surveys, year }) {
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <h3 className="font-black text-slate-700 mb-4">Dettagli struttura</h3>
         <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-          {[
-            ['Tipo (UDO)',  f.udo_name],
-            ['Regione',     f.region],
-            ['Indirizzo',   f.address],
-            ['Posti letto', f.bed_count || null],
-          ].filter(([,v]) => v).map(([k, v]) => (
+          {[['Tipo (UDO)', f.udo_name], ['Regione', f.region], ['Indirizzo', f.address], ['Posti letto', f.bed_count || null]]
+            .filter(([,v]) => v).map(([k, v]) => (
             <div key={k}>
               <dt className="text-slate-400 font-medium">{k}</dt>
               <dd className="font-bold text-slate-700">{v}</dd>
@@ -327,33 +462,106 @@ function OverviewTab({ facility: f, surveys, year }) {
         </dl>
       </div>
 
-      {/* Organico — 4 box su griglia 2x2 */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="font-black text-slate-700 mb-4">Organico struttura</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {ORG.map(({ label, name, email }) => (
-            <div key={label} className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</p>
-              <p className={`text-sm font-bold mb-2 ${name ? 'text-slate-800' : 'text-slate-300 italic'}`}>
-                {name || 'Non assegnato'}
-              </p>
-              <div className="flex items-center gap-2">
-                {email ? (
-                  <a
-                    href={`mailto:${email}`}
-                    className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
-                    title={email}
-                  >
-                    ✉ Email presente
-                  </a>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
-                    ✉ Email mancante
-                  </span>
-                )}
-              </div>
+      {/* Organico struttura */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <h3 className="font-black text-slate-700">Organico struttura</h3>
+          {!editingOrg ? (
+            <button onClick={() => setEditingOrg(true)}
+              className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-xl transition-colors">
+              ✏ Modifica
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={() => setEditingOrg(false)}
+                className="text-xs font-bold text-slate-500 hover:bg-slate-100 px-3 py-2 rounded-xl transition-colors">
+                Annulla
+              </button>
+              <button onClick={handleSaveOrg} disabled={savingOrg}
+                className="flex items-center gap-2 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-xl transition-colors disabled:opacity-60">
+                {savingOrg ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                Salva
+              </button>
             </div>
-          ))}
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-100">
+          {ORG_CONFIG.map(({ key, emailKey, label, icon }) => {
+            const nome  = editingOrg ? orgForm[key]      : (f[key]      || '');
+            const email = editingOrg ? orgForm[emailKey] : (f[emailKey] || '');
+            const isShowingInvito = showInvito === key;
+            const userProfile = userProfiles.find(p => p.email === f[emailKey]);
+
+            return (
+              <div key={key} className="px-6 py-4">
+                <div className="flex items-start gap-4">
+                  <span className="text-xl w-8 text-center mt-0.5">{icon}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+                      <OrgStatoPill email={f[emailKey]} userId={f[`${key}_user_id`]} userProfiles={userProfiles} />
+                    </div>
+
+                    {editingOrg ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        <input
+                          type="text"
+                          value={orgForm[key]}
+                          onChange={e => setOrgForm(p => ({ ...p, [key]: e.target.value }))}
+                          placeholder={`Nome ${label}`}
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 transition-all"
+                        />
+                        <input
+                          type="email"
+                          value={orgForm[emailKey]}
+                          onChange={e => setOrgForm(p => ({ ...p, [emailKey]: e.target.value }))}
+                          placeholder="Email"
+                          className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 transition-all"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-sm font-bold ${nome ? 'text-slate-800' : 'text-slate-300 italic'}`}>
+                          {nome || 'Non assegnato'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {f[emailKey] && (
+                            <a href={`mailto:${f[emailKey]}`}
+                              className="text-xs text-indigo-500 hover:text-indigo-700 transition-colors"
+                              title={f[emailKey]}>✉</a>
+                          )}
+                          {f[emailKey] && !userProfile && (
+                            <button
+                              onClick={() => setShowInvito(isShowingInvito ? null : key)}
+                              className="text-xs font-bold text-amber-600 hover:bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors">
+                              {isShowingInvito ? 'Chiudi' : 'Genera invito'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pannello istruzioni invito */}
+                    {isShowingInvito && !editingOrg && f[emailKey] && (
+                      <InvitoPanel
+                        figura={label}
+                        email={f[emailKey]}
+                        facilityName={f.name}
+                        onClose={() => setShowInvito(null)}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100">
+          <p className="text-[10px] text-slate-400 font-medium">
+            🟢 Attivo · 🟠 In attesa di primo accesso · 🟡 Da invitare · ⚫ Nessuna mail configurata
+          </p>
         </div>
       </div>
 
