@@ -1,26 +1,33 @@
-// src/views/DirectorApp.jsx
-// Vista per direttori con PIÙ strutture assegnate.
-// Se ha una sola struttura, AppRouter la bypassa e va diretto a /facility/:id
+/**
+ * src/views/DirectorApp.jsx  —  v2
+ * Vista per direttori con PIÙ strutture assegnate.
+ * Se ha una sola struttura, AppRouter la bypassa e va diretto a /facility/:id
+ *
+ * MODIFICHE v2:
+ *  - Sostituito useDashboardData (carica tutto il gruppo) con
+ *    useDirectorData(facilityIds, year) che carica solo le strutture assegnate.
+ *  - Aggiunto banner errori per problemi di rete.
+ *  - FacilitySelectionCard invariata (era già corretta).
+ */
 import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate }         from 'react-router-dom';
 import { PawPrint, LogOut, Building2, Activity, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
-import { useAuth }           from '../contexts/AuthContext';
-import { useDashboardData }  from '../hooks/useDashboardData';
-import { enrichFacilitiesData } from '../utils/statusCalculator';
+import { useAuth }               from '../contexts/AuthContext';
+import { useDirectorData }       from '../hooks/useDirectorData';
+import { enrichFacilitiesData }  from '../utils/statusCalculator';
 
 export default function DirectorApp() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  const year = new Date().getFullYear();
-  const { data, loading } = useDashboardData(year);
+  const year     = new Date().getFullYear();
 
-  // RLS garantisce che data.facilities contenga solo le strutture accessibili
-  // Filtriamo ulteriormente per sicurezza client-side sugli id assegnati
-  const myFacilities = useMemo(() => {
-    const ids = new Set(profile?.accessibleFacilityIds ?? []);
-    const mine = data.facilities.filter(f => ids.has(f.id));
-    return enrichFacilitiesData(mine, data.surveys, data.kpiRecords, year, data.udos);
-  }, [data, profile, year]);
+  const facilityIds = profile?.accessibleFacilityIds ?? [];
+  const { data, loading, errors } = useDirectorData(facilityIds, year);
+
+  const myFacilities = useMemo(() =>
+    enrichFacilitiesData(data.facilities, data.surveys, data.kpiRecords, year, data.udos),
+    [data, year]
+  );
 
   if (loading) {
     return (
@@ -62,22 +69,26 @@ export default function DirectorApp() {
 
       {/* Contenuto */}
       <main className="max-w-4xl mx-auto px-6 py-10">
+
+        {/* Banner errori di rete */}
+        {errors.length > 0 && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="text-sm font-bold text-red-700">
+              Errore nel caricamento dei dati: {errors.join(', ')}
+            </p>
+          </div>
+        )}
+
         <div className="mb-8">
           <h2 className="text-2xl font-black text-slate-800">Le tue strutture</h2>
-          <p className="text-slate-500 mt-1 text-sm">
-            Seleziona una struttura per gestirla
-          </p>
+          <p className="text-slate-500 mt-1 text-sm">Seleziona una struttura per gestirla</p>
         </div>
 
         {myFacilities.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
             <Building2 size={40} className="mx-auto text-slate-300 mb-4" />
-            <p className="text-slate-500 font-medium">
-              Nessuna struttura assegnata al tuo account.
-            </p>
-            <p className="text-slate-400 text-sm mt-1">
-              Contatta l'amministratore di sistema.
-            </p>
+            <p className="text-slate-500 font-medium">Nessuna struttura trovata.</p>
+            <p className="text-slate-400 text-sm mt-1">Contatta l'amministratore di sistema.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -110,7 +121,6 @@ function FacilitySelectionCard({ facility: f, onClick }) {
       className="bg-white rounded-2xl border border-slate-200 p-5 text-left hover:shadow-md hover:border-indigo-300 transition-all group"
       style={{ borderTopWidth: '4px', borderTopColor: f.udo_color || '#cbd5e1' }}
     >
-      {/* Status + KPI badge */}
       <div className="flex justify-between items-start mb-3">
         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${statusConfig.bg} ${statusConfig.color} ${statusConfig.border} border`}>
           <Icon size={12} />
@@ -123,7 +133,6 @@ function FacilitySelectionCard({ facility: f, onClick }) {
         )}
       </div>
 
-      {/* Nome e tipo */}
       <h3 className="font-black text-slate-800 text-sm leading-tight mb-1 group-hover:text-indigo-700 transition-colors">
         {f.name}
       </h3>
@@ -131,7 +140,6 @@ function FacilitySelectionCard({ facility: f, onClick }) {
         {f.udo_name || '—'} {f.region ? `· ${f.region}` : ''}
       </p>
 
-      {/* Posti letto */}
       {f.bed_count > 0 && (
         <p className="text-xs text-slate-500 mt-2">
           <span className="font-bold text-indigo-600">{f.bed_count}</span> posti letto

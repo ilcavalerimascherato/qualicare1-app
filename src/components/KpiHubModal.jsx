@@ -30,7 +30,7 @@ export default function KpiHubModal({ isOpen, onClose, onSelect }) {
 
           {/* OPZIONE 2: LASER (TREND) */}
           <button onClick={() => onSelect('kpiLaser')} className="flex flex-col items-center p-8 rounded-2xl border-2 border-slate-100 hover:border-emerald-500 hover:bg-emerald-50 transition-all group text-left h-full relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg">Nuovo</div>
+            <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg">Da migliorare</div>
             <div className="p-4 bg-emerald-100 text-emerald-600 rounded-2xl mb-6 group-hover:scale-110 transition-transform">
               <TrendingUp size={40} />
             </div>
@@ -39,7 +39,7 @@ export default function KpiHubModal({ isOpen, onClose, onSelect }) {
           </button>
 
           {/* OPZIONE 3: RAGGI X (SPARKLINES) */}
-          <button onClick={() => onSelect('kpiXray')} className="flex flex-col items-center p-8 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group text-left h-full">
+          <button onClick={() => onSelect('kpiXray')} className="flex flex-col items-center p-8 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group text-left h-full relative overflow-hidden">
             <div className="absolute top-0 right-0 bg-slate-800 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-lg">Spaziale</div>
             <div className="p-4 bg-indigo-100 text-indigo-600 rounded-2xl mb-6 group-hover:scale-110 transition-transform">
               <ActivitySquare size={40} />

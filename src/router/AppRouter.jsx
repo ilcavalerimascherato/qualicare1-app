@@ -1,14 +1,22 @@
-// src/router/AppRouter.jsx
-// Routing basato su ruolo. Unica fonte di verità per la navigazione.
-// Prerequisito: AuthProvider e ModalProvider già presenti in index.js
+/**
+ * src/router/AppRouter.jsx  —  v2
+ * ─────────────────────────────────────────────────────────────
+ * MODIFICHE v2:
+ *  - ROLES da constants.js al posto di stringhe hardcoded.
+ *  - RequireAdmin usa can('manageStructures') invece di isAdmin.
+ *  - RoleRouter gestisce il caso accessibleFacilityIds undefined/vuoto.
+ *  - Aggiunto redirect esplicito per ruolo 'sede' verso /admin.
+ * ─────────────────────────────────────────────────────────────
+ */
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES }   from '../config/constants';
 
-const AdminApp      = lazy(() => import('../App'));
-const DirectorApp   = lazy(() => import('../views/DirectorApp'));
+const AdminApp         = lazy(() => import('../App'));
+const DirectorApp      = lazy(() => import('../views/DirectorApp'));
 const DirectorFacility = lazy(() => import('../views/DirectorFacility'));
-const Login         = lazy(() => import('../Login'));
+const Login            = lazy(() => import('../Login'));
 
 function Splash({ msg = 'Caricamento...' }) {
   return (
@@ -33,36 +41,58 @@ function RoleRouter() {
   const { profile, loading } = useAuth();
   if (loading || !profile) return <Splash msg="Verifica profilo..." />;
 
-  if (['superadmin', 'admin', 'sede'].includes(profile.role)) {
+  const { role } = profile;
+
+  // Admin / sede → dashboard HQ
+  if ([ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.SEDE].includes(role)) {
     return <Navigate to="/admin" replace />;
   }
 
-  if (profile.role === 'director') {
+  // Direttore → smista per numero di strutture
+  if (role === ROLES.DIRECTOR) {
     const ids = profile.accessibleFacilityIds ?? [];
-    // Una sola struttura → vai diretto
+
+    if (ids.length === 0) {
+      // Account configurato ma senza strutture assegnate — mostra errore utile
+      return (
+        <div className="h-screen flex items-center justify-center bg-slate-50 p-6">
+          <div className="text-center max-w-sm">
+            <p className="font-black text-slate-700 text-lg mb-2">Nessuna struttura assegnata</p>
+            <p className="text-slate-500 text-sm">
+              Il tuo account non ha ancora accesso a nessuna struttura.
+              Contatta l'amministratore di sistema.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Una sola struttura → vai diretto senza tappa intermedia
     if (ids.length === 1) return <Navigate to={`/facility/${ids[0]}`} replace />;
+
     // Più strutture → lista di selezione
     return <Navigate to="/director" replace />;
   }
 
-  // Ruolo non riconosciuto → logout di sicurezza
+  // Ruolo 'viewer' o non riconosciuto → logout di sicurezza
   return <Navigate to="/login" replace />;
 }
 
-// Protegge le route admin
+// Protegge le route HQ
 function RequireAdmin() {
-  const { isAdmin, loading } = useAuth();
+  const { can, loading } = useAuth();
   if (loading) return <Splash />;
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!can('manageStructures')) return <Navigate to="/" replace />;
   return <Outlet />;
 }
 
 // Protegge la route di una struttura specifica
 function RequireFacilityAccess() {
-  const { facilityId } = useParams();
-  const { canAccessFacility, isAdmin, loading } = useAuth();
+  const { facilityId }                  = useParams();
+  const { canAccessFacility, can, loading } = useAuth();
   if (loading) return <Splash />;
-  if (!isAdmin && !canAccessFacility(Number(facilityId))) {
+  // Admin vede tutto, director solo le sue
+  if (!can('viewAllStructures') && !canAccessFacility(Number(facilityId))) {
     return <Navigate to="/" replace />;
   }
   return <Outlet />;
@@ -82,7 +112,7 @@ export default function AppRouter() {
             {/* Root: smista per ruolo */}
             <Route index element={<RoleRouter />} />
 
-            {/* Vista HQ — solo admin/superadmin */}
+            {/* Vista HQ — solo admin/superadmin/sede */}
             <Route element={<RequireAdmin />}>
               <Route path="/admin" element={<AdminApp />} />
             </Route>

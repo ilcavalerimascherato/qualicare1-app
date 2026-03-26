@@ -1,6 +1,18 @@
-// src/components/FacilityCard.jsx
+/**
+ * src/components/FacilityCard.jsx  —  v2
+ * MODIFICHE v2:
+ *  - Anno futuro: badge KPI grigio "N/D" invece di verde ingannevole.
+ *    isKpiGreen=true su anni futuri è tecnicamente corretto ma visivamente
+ *    fuorviante — ora mostriamo uno stato neutro distinto.
+ *  - Icona "Vista Direttore" visibile solo per admin (prop onDirectorView).
+ *    Cliccando naviga a /facility/:id per vedere la struttura come la
+ *    vedrebbe il direttore. Se la prop non è passata, il tasto non appare.
+ */
 import React, { memo } from 'react';
-import { Settings, Database, BarChart3, Activity, Archive, ArchiveRestore, CheckCircle2 } from 'lucide-react';
+import {
+  Settings, Database, BarChart3, Activity, Archive,
+  ArchiveRestore, CheckCircle2, ExternalLink
+} from 'lucide-react';
 
 const ICON_STYLES = {
   empty:     'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 border-slate-200',
@@ -33,13 +45,24 @@ const FacilityCard = memo(function FacilityCard({
   onDataClick,
   onSuspendToggle,
   onKpiClick,
+  onDirectorView,   // ← nuovo: se passato, mostra icona vista direttore
 }) {
   const isCompact      = gridCols?.includes('6') || gridCols?.includes('8');
   const isUltraCompact = gridCols?.includes('8');
+  const subtitle       = [f.udo_name, f.region].filter(Boolean).join(' • ');
 
-  // Riga descrittiva: usa udo_name (da enrichFacilitiesData) e region (colonna DB)
-  // Non usiamo f.type o f.city che non esistono nel DB
-  const subtitle = [f.udo_name, f.region].filter(Boolean).join(' • ');
+  // Stato KPI: distingue verde, futuro (grigio N/D) e da fare (rosso)
+  const kpiState = f._kpiFuture
+    ? 'future'
+    : f.isKpiGreen
+    ? 'ok'
+    : 'todo';
+
+  const kpiCfg = {
+    ok:     { cls: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100', Icon: CheckCircle2, label: 'KPI' },
+    future: { cls: 'bg-slate-100 border-slate-200 text-slate-400 cursor-default',            Icon: Activity,     label: 'KPI N/D' },
+    todo:   { cls: 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white', Icon: Activity, label: 'KPI' },
+  }[kpiState];
 
   return (
     <div
@@ -52,6 +75,16 @@ const FacilityCard = memo(function FacilityCard({
     >
       {/* Azioni hover */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Icona vista direttore — solo se admin e prop passata */}
+        {onDirectorView && (
+          <button
+            onClick={() => onDirectorView(f)}
+            className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+            title="Vista direttore"
+          >
+            <ExternalLink size={13} />
+          </button>
+        )}
         <button
           onClick={() => onSuspendToggle(f)}
           className={`p-1.5 rounded-lg transition-all ${
@@ -64,7 +97,7 @@ const FacilityCard = memo(function FacilityCard({
           {f.is_suspended ? <ArchiveRestore size={14} /> : <Archive size={14} />}
         </button>
         <button
-          onClick={onEdit}
+          onClick={() => onEdit(f)}
           className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
           title="Modifica struttura"
         >
@@ -80,7 +113,6 @@ const FacilityCard = memo(function FacilityCard({
           {f.name}
         </h3>
 
-        {/* UDO • Regione */}
         {subtitle && (
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
             {subtitle}
@@ -88,15 +120,12 @@ const FacilityCard = memo(function FacilityCard({
         )}
 
         <div className="mt-2 text-[11px] font-medium text-slate-500 space-y-0.5">
-          {/* Indirizzo: nascosto in modalità ultra-compatta */}
           {!isUltraCompact && f.address && (
             <p className="truncate">{f.address}</p>
           )}
-          {/* Referente qualità: visibile solo in modalità larga */}
           {!isCompact && f.referent && (
             <p className="truncate text-slate-400">Ref: {f.referent}</p>
           )}
-          {/* Direttore: visibile solo in modalità larga */}
           {!isCompact && f.director && (
             <p className="truncate text-slate-400">Dir: {f.director}</p>
           )}
@@ -105,21 +134,14 @@ const FacilityCard = memo(function FacilityCard({
 
       {/* Footer: KPI + Survey */}
       <div className="mt-2 flex justify-between items-center pt-3 border-t border-slate-50">
-
         <button
-          onClick={() => onKpiClick(f)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all group/kpi shadow-sm ${
-            f.isKpiGreen
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-              : 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white'
-          }`}
-          title={f.isKpiGreen ? 'KPI in regola' : 'Gestione KPI mensili'}
+          onClick={() => kpiState !== 'future' && onKpiClick(f)}
+          disabled={kpiState === 'future'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border transition-all group/kpi shadow-sm ${kpiCfg.cls}`}
+          title={kpiState === 'future' ? 'Nessun mese rendicontabile per questo anno' : kpiState === 'ok' ? 'KPI in regola' : 'Gestione KPI mensili'}
         >
-          {f.isKpiGreen
-            ? <CheckCircle2 size={13} />
-            : <Activity size={13} className="group-hover/kpi:animate-pulse" />
-          }
-          <span className="text-[10px] font-black uppercase tracking-wider">KPI</span>
+          <kpiCfg.Icon size={13} className={kpiState === 'todo' ? 'group-hover/kpi:animate-pulse' : ''} />
+          <span className="text-[10px] font-black uppercase tracking-wider">{kpiCfg.label}</span>
         </button>
 
         <div className="flex gap-1.5">

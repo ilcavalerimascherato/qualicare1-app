@@ -1,94 +1,120 @@
+/**
+ * src/components/KpiLaserModal.jsx  —  v2
+ * MODIFICHE v2:
+ *  - Rimossa <Legend> (produceva il "lenzuolo" di label orizzontali
+ *    impossibili da leggere con molte strutture).
+ *  - Aggiunto CustomTooltip: quando si passa sul punto di una linea
+ *    mostra solo la struttura di riferimento + valore + mese.
+ *    Se più strutture hanno lo stesso valore nello stesso mese,
+ *    le lista tutte in un tooltip multi-riga.
+ *  - Aggiunta legenda laterale scrollabile con chip colorati per
+ *    identificare le strutture senza ingombrare il grafico.
+ */
 import React, { useState, useMemo } from 'react';
 import { X, TrendingUp } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceArea } from 'recharts';
-import { KPI_RULES } from '../config/kpiRules';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceArea
+} from 'recharts';
+import { KPI_RULES }       from '../config/kpiRules';
 import { computeKpiValue } from '../utils/kpiFormulaEngine';
-import { getTimeHorizon } from '../utils/kpiTimeHorizon';
+import { getTimeHorizon }  from '../utils/kpiTimeHorizon';
 
-const PALETTE = ['#0D3B66', '#457B9D', '#1D3557', '#e76f51', '#f4a261', '#e9c46a', '#2a9d8f', '#264653'];
+const PALETTE = ['#0D3B66','#457B9D','#1D9E75','#e76f51','#f4a261','#e9c46a','#2a9d8f','#264653','#9b2226','#6a4c93','#1982c4','#8ac926'];
+
+// ── Tooltip custom ────────────────────────────────────────────
+function CustomTooltip({ active, payload, label, isPerc }) {
+  if (!active || !payload?.length) return null;
+  const unit = isPerc ? '%' : '';
+  return (
+    <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: '10px 14px', maxWidth: 280 }}>
+      <p style={{ color: '#94a3b8', fontSize: 11, fontWeight: 'bold', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+      {payload.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.stroke, display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 'bold', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.dataKey}</span>
+          <span style={{ color: '#f8fafc', fontSize: 13, fontWeight: '900', flexShrink: 0 }}>{p.value}{unit}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function KpiLaserModal({ isOpen, onClose, facilities, udos = [], kpiRecords, year }) {
   const [selectedKpiTarget, setSelectedKpiTarget] = useState('Turn Over');
-  const [selectedUdos, setSelectedUdos] = useState([]);
-  const [hiddenSeries, setHiddenSeries] = useState({});
+  const [selectedUdos, setSelectedUdos]           = useState([]);
+  const [hiddenSeries, setHiddenSeries]           = useState({});
 
-  const toggleUdo = (id) => setSelectedUdos(prev => prev.includes(id) ? prev.filter(u => u !== id) : [...prev, id]);
+  const toggleUdo = (id) => setSelectedUdos(prev =>
+    prev.includes(id) ? prev.filter(u => u !== id) : [...prev, id]
+  );
 
-  const activeRule = useMemo(() => KPI_RULES.find(r => r.kpi_target === selectedKpiTarget), [selectedKpiTarget]);
+  const activeRule  = useMemo(() => KPI_RULES.find(r => r.kpi_target === selectedKpiTarget), [selectedKpiTarget]);
   const timeHorizon = useMemo(() => getTimeHorizon(year), [year]);
+  const isPercTab   = activeRule && !['NUMERI', 'ISPEZIONI'].includes(activeRule.settore);
+
+  const targetFacilities = useMemo(() => {
+    let facs = facilities.filter(f => !f.is_suspended);
+    if (selectedUdos.length > 0) facs = facs.filter(f => selectedUdos.includes(f.udo_id));
+    return facs;
+  }, [facilities, selectedUdos]);
 
   const chartData = useMemo(() => {
-    if (!activeRule) {return [];}
-
-    let targetFacilities = facilities.filter(f => !f.is_suspended);
-    if (selectedUdos.length > 0) {targetFacilities = targetFacilities.filter(f => selectedUdos.includes(f.udo_id));}
-
+    if (!activeRule) return [];
     return timeHorizon.map(t => {
       const monthData = { name: t.label };
-
       targetFacilities.forEach(f => {
-        // Cerca il record incrociando ANNO e MESE esatti del timeHorizon
-        const record = kpiRecords.find(k => String(k.facility_id) === String(f.id) && Number(k.year) === t.yearNum && Number(k.month) === t.monthNum && k.status === 'completed');
-
-        let result = null;
-        if (record && record.metrics_json) {
-          result = computeKpiValue(activeRule, record.metrics_json, f);
-        }
-        if (result !== null) {
-          monthData[f.name] = result;
-        }
+        const record = kpiRecords.find(k =>
+          String(k.facility_id) === String(f.id) &&
+          Number(k.year)  === t.yearNum &&
+          Number(k.month) === t.monthNum &&
+          k.status === 'completed'
+        );
+        const result = record?.metrics_json
+          ? computeKpiValue(activeRule, record.metrics_json, f)
+          : null;
+        if (result !== null) monthData[f.name] = result;
       });
       return monthData;
     });
-  }, [facilities, selectedUdos, kpiRecords, timeHorizon, activeRule]);
+  }, [targetFacilities, kpiRecords, timeHorizon, activeRule]);
 
   const dataKeys = useMemo(() => {
     const keys = new Set();
-    chartData.forEach(d => {
-      Object.keys(d).forEach(k => { if(k !== 'name') {keys.add(k);} });
-    });
+    chartData.forEach(d => Object.keys(d).forEach(k => { if (k !== 'name') keys.add(k); }));
     return Array.from(keys);
   }, [chartData]);
 
-  const handleLegendClick = (e) => {
-    const { dataKey } = e;
-    setHiddenSeries(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
-  };
+  const toggleSeries = (key) => setHiddenSeries(prev => ({ ...prev, [key]: !prev[key] }));
 
-  if (!isOpen) {return null;}
-
-  const isPercTab = activeRule && !['NUMERI', 'ISPEZIONI'].includes(activeRule.settore);
+  if (!isOpen) return null;
 
   const getReferenceAreas = () => {
-    if (!activeRule || activeRule.target_verde === null) {return null;}
-    const m = isPercTab ? 100 : 1;
+    if (!activeRule?.target_verde) return null;
+    const m  = isPercTab ? 100 : 1;
     const tv = activeRule.target_verde * m;
     const tr = activeRule.target_rosso * m;
-
-    if (activeRule.direzione === 'MAX') {
-      return (
-        <>
-          <ReferenceArea y1={tv} y2={9999} fill="#10b981" fillOpacity={0.08} />
-          <ReferenceArea y1={tr} y2={tv} fill="#fbbf24" fillOpacity={0.08} />
-          <ReferenceArea y1={-999} y2={tr} fill="#ef4444" fillOpacity={0.08} />
-        </>
-      );
-    } else if (activeRule.direzione === 'MIN') {
-      return (
-        <>
-          <ReferenceArea y1={-999} y2={tv} fill="#10b981" fillOpacity={0.08} />
-          <ReferenceArea y1={tv} y2={tr} fill="#fbbf24" fillOpacity={0.08} />
-          <ReferenceArea y1={tr} y2={9999} fill="#ef4444" fillOpacity={0.08} />
-        </>
-      );
-    }
-    return null;
+    if (activeRule.direzione === 'MAX') return (
+      <>
+        <ReferenceArea y1={tv}   y2={9999}  fill="#10b981" fillOpacity={0.08} />
+        <ReferenceArea y1={tr}   y2={tv}    fill="#fbbf24" fillOpacity={0.08} />
+        <ReferenceArea y1={-999} y2={tr}    fill="#ef4444" fillOpacity={0.08} />
+      </>
+    );
+    return (
+      <>
+        <ReferenceArea y1={-999} y2={tv}   fill="#10b981" fillOpacity={0.08} />
+        <ReferenceArea y1={tv}   y2={tr}   fill="#fbbf24" fillOpacity={0.08} />
+        <ReferenceArea y1={tr}   y2={9999} fill="#ef4444" fillOpacity={0.08} />
+      </>
+    );
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in">
       <div className="bg-white rounded-2xl w-full max-w-[95vw] h-[95vh] flex flex-col shadow-2xl overflow-hidden font-sans">
 
+        {/* Header */}
         <div className="bg-slate-950 px-8 py-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
             <div className="p-2.5 bg-emerald-500 rounded-lg text-white"><TrendingUp size={24} /></div>
@@ -100,78 +126,107 @@ export default function KpiLaserModal({ isOpen, onClose, facilities, udos = [], 
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-full transition-colors"><X size={26} /></button>
         </div>
 
+        {/* Toolbar */}
         <div className="bg-slate-50 border-b border-slate-200 px-8 py-4 flex flex-col gap-4 shrink-0">
-          <div className="flex items-center gap-6">
-
+          <div className="flex items-center gap-6 flex-wrap">
             <div className="flex flex-col">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Seleziona KPI</label>
-              <select value={selectedKpiTarget} onChange={(e) => setSelectedKpiTarget(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 cursor-pointer shadow-sm">
+              <select value={selectedKpiTarget} onChange={e => setSelectedKpiTarget(e.target.value)}
+                className="bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-500 cursor-pointer shadow-sm">
                 {KPI_RULES.map((r, i) => <option key={i} value={r.kpi_target}>[{r.settore}] {r.kpi_target}</option>)}
               </select>
             </div>
 
-            <div className="w-px h-10 bg-slate-300"></div>
+            <div className="w-px h-10 bg-slate-300" />
 
             <div className="flex flex-col flex-1">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Filtro UDO</label>
               <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => setSelectedUdos([])} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedUdos.length === 0 ? 'bg-slate-800 text-white shadow-md' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>Tutte</button>
+                <button onClick={() => setSelectedUdos([])}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedUdos.length === 0 ? 'bg-slate-800 text-white shadow-md' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
+                  Tutte
+                </button>
                 {udos.map(u => (
-                  <button key={u.id} onClick={() => toggleUdo(u.id)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedUdos.includes(u.id) ? 'bg-emerald-600 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-600 hover:border-emerald-400'}`}>
+                  <button key={u.id} onClick={() => toggleUdo(u.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedUdos.includes(u.id) ? 'bg-emerald-600 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-600 hover:border-emerald-400'}`}>
                     {u.name}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* Info tooltip */}
+            <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-2 rounded-lg">
+              Passa il mouse sui punti per vedere i valori
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 p-8 bg-white flex flex-col">
-           {dataKeys.length === 0 ? (
-             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
+        {/* Body: grafico + legenda laterale */}
+        <div className="flex-1 flex overflow-hidden">
+
+          {/* Grafico */}
+          <div className="flex-1 p-8">
+            {dataKeys.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
                 <TrendingUp size={48} className="mb-4 opacity-50" />
                 <p className="font-black uppercase tracking-widest">Dati non sufficienti</p>
-                <p className="text-xs font-bold mt-2">Nessuna struttura filtrata ha registrato dati per "{selectedKpiTarget}" in questo periodo.</p>
-             </div>
-           ) : (
-             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-
-                {getReferenceAreas()}
-
-                <XAxis dataKey="name" tick={{fontSize: 12, fontWeight: 'bold', fill: '#475569'}} />
-                <YAxis tick={{fontSize: 12, fontWeight: 'bold', fill: '#475569'}} domain={['auto', 'auto']} />
-
-                <Tooltip
-                  formatter={(value) => isPercTab ? `${value}%` : value}
-                  cursor={{stroke: '#cbd5e1', strokeWidth: 2}}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  labelStyle={{ fontWeight: '900', color: '#1e293b', marginBottom: '8px' }}
-                />
-                <Legend
-                  onClick={handleLegendClick}
-                  wrapperStyle={{ paddingTop: '20px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
-                  iconType="circle"
-                />
-
-                {dataKeys.map((key, index) => (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={PALETTE[index % PALETTE.length]}
-                    strokeWidth={3}
-                    dot={{ r: 4, strokeWidth: 2 }}
-                    activeDot={{ r: 8 }}
-                    hide={hiddenSeries[key] === true}
-                    connectNulls={true}
+                <p className="text-xs font-bold mt-2">Nessuna struttura ha dati per "{selectedKpiTarget}" in questo periodo.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  {getReferenceAreas()}
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 'bold', fill: '#475569' }} />
+                  <YAxis tick={{ fontSize: 12, fontWeight: 'bold', fill: '#475569' }} domain={['auto', 'auto']} />
+                  <Tooltip
+                    content={<CustomTooltip isPerc={isPercTab} />}
+                    cursor={{ stroke: '#cbd5e1', strokeWidth: 2 }}
                   />
+                  {dataKeys.map((key, index) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={PALETTE[index % PALETTE.length]}
+                      strokeWidth={hiddenSeries[key] ? 0 : 2.5}
+                      dot={{ r: 4, strokeWidth: 2 }}
+                      activeDot={{ r: 7, strokeWidth: 0 }}
+                      hide={hiddenSeries[key] === true}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Legenda laterale (al posto della Legend orizzontale) */}
+          {dataKeys.length > 0 && (
+            <div className="w-56 shrink-0 border-l border-slate-100 p-4 overflow-y-auto bg-slate-50">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Strutture</p>
+              <div className="space-y-1.5">
+                {dataKeys.map((key, index) => (
+                  <button
+                    key={key}
+                    onClick={() => toggleSeries(key)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all ${
+                      hiddenSeries[key] ? 'opacity-40 bg-white' : 'bg-white shadow-sm'
+                    }`}
+                    title={key}
+                  >
+                    <span
+                      style={{ backgroundColor: PALETTE[index % PALETTE.length] }}
+                      className="w-3 h-3 rounded-full shrink-0"
+                    />
+                    <span className="text-xs font-bold text-slate-700 leading-tight line-clamp-2">{key}</span>
+                  </button>
                 ))}
-              </LineChart>
-            </ResponsiveContainer>
-           )}
+              </div>
+              <p className="text-[9px] text-slate-400 mt-4 font-medium">Clicca per nascondere/mostrare</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

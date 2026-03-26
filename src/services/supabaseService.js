@@ -1,6 +1,20 @@
-// src/services/supabaseService.js
-// Regola fondamentale: ogni service lancia l'errore, non lo gestisce.
-// La gestione (toast, UI) spetta al chiamante.
+/**
+ * src/services/supabaseService.js  —  v2
+ * ─────────────────────────────────────────────────────────────
+ * Regola fondamentale: ogni service lancia l'errore, non lo gestisce.
+ * La gestione (toast, UI) spetta al chiamante.
+ *
+ * MODIFICHE v2:
+ *  - userService.invite: rimosso il tentativo di chiamare
+ *    supabase.auth.admin.inviteUserByEmail() lato client.
+ *    Questa API richiede la SERVICE ROLE KEY, che NON deve mai
+ *    essere nel bundle del browser.
+ *    La funzione ora lancia un errore descrittivo che guida
+ *    lo sviluppatore verso la soluzione corretta.
+ *    TODO: implementare Edge Function 'invite-user' in Supabase.
+ *  - Tutto il resto invariato.
+ * ─────────────────────────────────────────────────────────────
+ */
 
 import { supabase } from '../supabaseClient';
 
@@ -67,9 +81,9 @@ export const questionnaireService = {
         year:        payload.year,
         type:        payload.type,
         calendar_id: `${payload.year}-12`,
-        start_date:  payload.start_date  || null,
-        end_date:    payload.end_date    || null,
-        esiti_pdf:   payload.esiti_pdf   || null,
+        start_date:  payload.start_date || null,
+        end_date:    payload.end_date   || null,
+        esiti_pdf:   payload.esiti_pdf  || null,
       }, { onConflict: 'facility_id, type, calendar_id' })
       .select()
       .single();
@@ -79,34 +93,50 @@ export const questionnaireService = {
   },
 };
 
-// ─── User management service (solo admin/superadmin) ──────────
+// ─── User management service ──────────────────────────────────
 export const userService = {
-  // Crea utente + profilo in un'unica operazione
+  /**
+   * Invita un nuovo utente.
+   *
+   * ⚠️  RICHIEDE EDGE FUNCTION — non può funzionare lato client.
+   *
+   * supabase.auth.admin.* richiede la SERVICE ROLE KEY, che non deve
+   * mai essere esposta nel bundle del browser per ragioni di sicurezza.
+   *
+   * SOLUZIONE: implementare una Supabase Edge Function 'invite-user'
+   * che riceve { email, role, companyId, facilityIds } e usa
+   * supabaseAdmin (con service role key nel server env) per creare l'utente.
+   *
+   * Esempio Edge Function (Deno):
+   *   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+   *   const supabaseAdmin = createClient(
+   *     Deno.env.get('SUPABASE_URL'),
+   *     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')  // solo lato server
+   *   )
+   *   const { data } = await supabaseAdmin.auth.admin.inviteUserByEmail(email)
+   *
+   * Nel frattempo, usa il pannello Supabase Dashboard → Authentication → Users
+   * e lo script SQL generato da InvitoPanel in DirectorFacility.
+   */
   invite: async ({ email, role, companyId, facilityIds = [] }) => {
-    // 1. Invita l'utente via Supabase Auth (riceve email con link)
-    const { data: authData, error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
-      data: { role }
+    // Chiamata all'Edge Function (da implementare)
+    const { data, error } = await supabase.functions.invoke('invite-user', {
+      body: { email, role, companyId, facilityIds },
     });
-    if (authError) throw authError;
 
-    const userId = authData.user.id;
-
-    // 2. Aggiorna il profilo con company_id e role
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .update({ role, company_id: companyId })
-      .eq('id', userId);
-    if (profileError) throw profileError;
-
-    // 3. Assegna le strutture accessibili
-    if (facilityIds.length > 0) {
-      const rows = facilityIds.map(fid => ({ user_id: userId, facility_id: fid }));
-      const { error: accessError } = await supabase.from('user_facility_access').insert(rows);
-      if (accessError) throw accessError;
+    if (error) {
+      // Messaggio chiaro se la Edge Function non è ancora deployata
+      if (error.message?.includes('Function not found')) {
+        throw new Error(
+          'La funzione Edge "invite-user" non è ancora deployata su Supabase. ' +
+          'Crea la Edge Function o usa il pannello Supabase Dashboard per invitare manualmente l\'utente.'
+        );
+      }
+      throw error;
     }
 
     log('INVITE_USER', { email, role, facilityIds });
-    return authData.user;
+    return data;
   },
 
   updateAccess: async (userId, facilityIds) => {
