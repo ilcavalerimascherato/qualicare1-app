@@ -8,7 +8,7 @@
  *
  * Prop aggiunta: kpiRecords (già passata da App.js v3)
  */
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X, FileSignature, BrainCircuit, FileDown,
   Layers, Building2, BarChart2, Calendar, TrendingUp

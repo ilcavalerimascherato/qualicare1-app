@@ -235,13 +235,6 @@ export default function AnalyticsModal({
     });
   };
 
-  // ── Stile condiviso box numerico PDF ─────────────────────────
-  const pdfNumBox = {
-    display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center',
-    width: '25%', textAlign: 'center',
-  };
-
   return (
     <div className="fixed inset-0 bg-slate-900 z-50 flex flex-col overflow-hidden animate-in fade-in duration-200">
 

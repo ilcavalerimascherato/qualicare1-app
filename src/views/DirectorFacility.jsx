@@ -16,7 +16,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   PawPrint, LogOut, ArrowLeft, Activity, BarChart3, Database,
-  AlertTriangle, TrendingUp, CheckCircle2, Clock,
+  AlertTriangle, TrendingUp,
   Plus, Save, Loader2, X
 } from 'lucide-react';
 
@@ -785,7 +785,6 @@ function KpiTab({ facility, kpiRecords, year, onOpenManager }) {
 function KpiCard({ rule, data, isPerc }) {
   const hasTarget  = rule.target_verde !== null;
   const useBar     = ['NUMERI', 'ISPEZIONI'].includes(rule.settore);
-  const multiplier = isPerc ? 1 : 1;
   const unit       = isPerc ? '%' : '';
   const lastVal    = [...data].reverse().find(d => d.value !== null);
 

@@ -8,7 +8,7 @@
  */
 import React, { useState, useMemo } from 'react';
 import { X, BarChart2 } from 'lucide-react';
-import { KPI_RULES, getKpiStatus, KPI_RULES_BY_SETTORE } from '../config/kpiRules';
+import { getKpiStatus, KPI_RULES_BY_SETTORE } from '../config/kpiRules';
 import { evaluateKpiFormula } from '../utils/kpiFormulaEngine';
 import { MONTHS } from '../config/constants';
 
