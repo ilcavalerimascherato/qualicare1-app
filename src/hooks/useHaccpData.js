@@ -6,7 +6,7 @@
  *  - useHaccpFascicolo(facilityId) → tutti i dati HACCP di una struttura
  * ─────────────────────────────────────────────────────────────
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 
 // ── useHaccpSemafori ──────────────────────────────────────────
@@ -150,7 +150,6 @@ export function useHaccpFascicolo(facilityId) {
 }
 
 // ── useHaccpInvalidate ────────────────────────────────────────
-import { useQueryClient } from '@tanstack/react-query';
 
 export function useHaccpInvalidate(facilityId) {
   const qc = useQueryClient();
