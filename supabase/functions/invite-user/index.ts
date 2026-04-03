@@ -101,7 +101,7 @@ serve(async (req) => {
     }
 
     // ── 4. Invia email reset password ─────────────────────────
-    const siteUrl = Deno.env.get('SITE_URL') ?? 'https://qualicare1-app.vercel.app';
+    const siteUrl = Deno.env.get('SITE_URL') ?? 'https://qualicava-app.vercel.app';
 
     const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type:    'recovery',

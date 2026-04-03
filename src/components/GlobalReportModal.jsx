@@ -111,7 +111,7 @@ function aggregateKpiForPeriod(rules, facilities, kpiRecords, months) {
       return { label: `${mn?.short || month}/${String(year).slice(2)}`, avg };
     }).filter(t => t.avg !== null);
 
-    if (trend.length === 0) return null;
+    if (trend.length === 0) return { rule, trend: [], delta: 0, trend_dir: 'n/d', entries: [] };
 
     const vals      = trend.map(t => t.avg);
     const first     = vals[0];
@@ -119,13 +119,13 @@ function aggregateKpiForPeriod(rules, facilities, kpiRecords, months) {
     const delta     = last - first;
     const trend_dir = delta > 0.5 ? 'crescita' : delta < -0.5 ? 'calo' : 'stabile';
 
-    return { rule, trend, delta: delta ?? 0, trend_dir: trend_dir ?? 'n/d' };
+    return { rule, trend, delta: delta ?? 0, trend_dir: trend_dir ?? 'n/d', entries: trend };
   }); // tutti i KPI inclusi quelli senza dati
 }
 
 // ── Componente principale ─────────────────────────────────────
 export default function GlobalReportModal({
-  isOpen, onClose, facilities, udos, surveys, kpiRecords = []
+  isOpen, onClose, facilities = [], udos = [], surveys = [], kpiRecords = []
 }) {
   const [activeTab, setActiveTab] = useState('survey'); // 'survey' | 'kpi'
 
@@ -625,7 +625,7 @@ export default function GlobalReportModal({
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Indicatori con dati</p>
-                      <p className="font-black text-emerald-600">{kpiAggregated.filter(r => r.entries.length > 0).length} / {kpiAggregated.length}</p>
+                      <p className="font-black text-emerald-600">{kpiAggregated.filter(r => (r?.entries?.length ?? 0) > 0).length} / {kpiAggregated.length}</p>
                     </div>
                     {kpiMode === 'month' && (
                       <div>
@@ -635,7 +635,7 @@ export default function GlobalReportModal({
                     )}
                   </div>
                   <button onClick={generateKpiReport}
-                    disabled={kpiGenerating || kpiAggregated.every(r => r.entries.length === 0) || (kpiScopeType === 'facility' && kpiScope === 'all')}
+                    disabled={kpiGenerating || kpiAggregated.every(r => (r?.entries?.length ?? 0) === 0) || (kpiScopeType === 'facility' && kpiScope === 'all')}
                     className="flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest shadow-md transition-all text-sm">
                     <BrainCircuit size={18} />
                     {kpiGenerating ? 'Analisi in corso...' : 'Genera Relazione KPI IA'}
